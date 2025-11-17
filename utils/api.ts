@@ -1,4 +1,4 @@
-import { ExtendSessionResponse, LoginResponse } from "@/types/api_types";
+import { ExtendSessionResponse, LoginResponse, UserMetadata } from "@/types/api_types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
@@ -87,4 +87,57 @@ module.exports = {
   ///////////////////////////////////////
   //////////// USER REQUESTS ////////////
   ///////////////////////////////////////
+  getUserData: async (): Promise<UserMetadata> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.post("https://edu.tardigrade.land/msg/protected/user/meta", {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${jwtToken}`,
+      },
+    });
+
+    if (response.status !== 200) {
+      throw new Error("Can't retrieve user data");
+    }
+
+    if (response.status === 200) {
+      console.log("Retrieved user data");
+    }
+
+    let data: UserMetadata = response.data;
+
+    return data;
+  },
+
+  postNewUserData: async (newUserData: UserMetadata): Promise<UserMetadata> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.post("https://edu.tardigrade.land/msg/protected/user/meta", newUserData, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${jwtToken}`,
+      },
+    });
+
+    if (response.status == 401) {
+      throw new Error("User data modification failed, invalid token");
+    } else if (response.status !== 200) {
+      throw new Error("User data modification failed");
+    }
+
+    if (response.status === 200) {
+      console.log("User data modification successful");
+    }
+
+    let data: UserMetadata = response.data;
+
+    return data;
+  },
+
+  ///////////////////////////////////////
+
+  //////////////////////////////////////////
+  //////////// CHANNEL REQUESTS ////////////
+  //////////////////////////////////////////
 };
