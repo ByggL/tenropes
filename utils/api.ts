@@ -8,326 +8,226 @@ import {
   NewMessageData,
   UserMetadata,
 } from "@/types/api_types";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
+import { getJwt, storeJwt } from "./jwt";
 
-const storeJwt = async (jwtString: string) => {
-  try {
-    await AsyncStorage.setItem("jwt_token", jwtString);
-  } catch (e) {
-    throw new Error("Failed to store JWT token");
+class API {
+  private readonly client: AxiosInstance;
+  private readonly baseUrl = "https://edu.tardigrade.land/msg";
+
+  constructor() {
+    this.client = axios.create({
+      baseURL: this.baseUrl,
+    });
+
+    this.client.interceptors.request.use(async (config) => {
+      // Set content type for requests with a body
+      const methodsWithBody = ["post", "put", "patch"];
+      if (config.method && methodsWithBody.includes(config.method)) {
+        config.headers["Content-Type"] = "application/json";
+      }
+
+      // Only add auth token for protected routes
+      if (config.url?.includes("/protected/")) {
+        const token = await getJwt();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      }
+      return config;
+    });
   }
-};
 
-const getJwt = async () => {
-  try {
-    const value = await AsyncStorage.getItem("jwt_token");
-    if (value !== null) {
-      return value;
-    }
-  } catch (e) {
-    throw new Error("Failed ton retrieve JWT token");
-  }
-};
-
-module.exports = {
   ///////////////////////////////////////
   //////////// AUTH REQUESTS ////////////
   ///////////////////////////////////////
 
-  login: async (username: string, password: string): Promise<LoginResponse> => {
-    let response = await axios.post(
-      "https://edu.tardigrade.land/msg/login",
-      {
-        username: username,
-        password: password,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+  public async login(
+    username: string,
+    password: string
+  ): Promise<LoginResponse> {
+    try {
+      const response = await this.client.post<LoginResponse>("/login", {
+        username,
+        password,
+      });
 
-    if (response.status == 403) {
-      throw new Error("Login failed, invalid credentials");
-    } else if (response.status !== 200) {
+      console.log("Login successful");
+      const { data } = response;
+      await storeJwt(data.token);
+      return data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        throw new Error("Login failed, invalid credentials");
+      }
       throw new Error("Login failed");
     }
+  }
 
-    if (response.status === 200) {
-      console.log("Login successful");
-    }
+  public async extendSession(): Promise<ExtendSessionResponse> {
+    try {
+      const response = await this.client.post<ExtendSessionResponse>(
+        "/protected/extend_session",
+        {} // Empty body
+      );
 
-    let data: LoginResponse = response.data;
-
-    await storeJwt(data.token);
-
-    return data;
-  },
-
-  extendSession: async (): Promise<ExtendSessionResponse> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.post(
-      "https://edu.tardigrade.land/msg/protected/extend_session",
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
+      console.log("Session extension successful");
+      const { data } = response;
+      // Store the newly received token
+      await storeJwt(data.token);
+      return data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Session extension failed, invalid token");
       }
-    );
-
-    if (response.status == 401) {
-      throw new Error("Session extension failed, invalid token");
-    } else if (response.status !== 200) {
       throw new Error("Session extension failed");
     }
-
-    if (response.status === 200) {
-      console.log("Session extension successful");
-    }
-
-    let data: ExtendSessionResponse = response.data;
-
-    return data;
-  },
+  }
 
   ///////////////////////////////////////
 
   ///////////////////////////////////////
   //////////// USER REQUESTS ////////////
   ///////////////////////////////////////
-  getUserData: async (): Promise<UserMetadata> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.post(
-      "https://edu.tardigrade.land/msg/protected/user/meta",
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      }
-    );
-
-    if (response.status !== 200) {
+  public async getUserData(): Promise<UserMetadata> {
+    try {
+      const response = await this.client.post<UserMetadata>(
+        "/protected/user/meta",
+        {}
+      );
+      console.log("Retrieved user data");
+      return response.data;
+    } catch (error) {
       throw new Error("Can't retrieve user data");
     }
+  }
 
-    if (response.status === 200) {
-      console.log("Retrieved user data");
-    }
-
-    let data: UserMetadata = response.data;
-
-    return data;
-  },
-
-  postNewUserData: async (newUserData: UserMetadata): Promise<UserMetadata> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.post(
-      "https://edu.tardigrade.land/msg/protected/user/meta",
-      newUserData,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
+  public async postNewUserData(
+    newUserData: UserMetadata
+  ): Promise<UserMetadata> {
+    try {
+      const response = await this.client.post<UserMetadata>(
+        "/protected/user/meta",
+        newUserData
+      );
+      console.log("User data modification successful");
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("User data modification failed, invalid token");
       }
-    );
-
-    if (response.status == 401) {
-      throw new Error("User data modification failed, invalid token");
-    } else if (response.status !== 200) {
       throw new Error("User data modification failed");
     }
-
-    if (response.status === 200) {
-      console.log("User data modification successful");
-    }
-
-    let data: UserMetadata = response.data;
-
-    return data;
-  },
+  }
 
   ///////////////////////////////////////
 
   //////////////////////////////////////////
   //////////// CHANNEL REQUESTS ////////////
   //////////////////////////////////////////
-  createNewChannel: async (newChannelData: NewChannelData): Promise<number> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.post(
-      "https://edu.tardigrade.land/msg/protected/channel",
-      newChannelData,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
+  public async createNewChannel(
+    newChannelData: NewChannelData
+  ): Promise<number> {
+    try {
+      const response = await this.client.post<number>(
+        "/protected/channel",
+        newChannelData
+      );
+      console.log("Channel creation successful");
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Channel creation failed, invalid token");
       }
-    );
-
-    if (response.status == 401) {
-      throw new Error("Cchannel creation failed, invalid token");
-    } else if (response.status !== 200) {
       throw new Error("Channel creation failed");
     }
+  }
 
-    if (response.status === 200) {
-      console.log("Channel creation successful");
-    }
-
-    let newChannelId: number = response.data;
-
-    return newChannelId;
-  },
-
-  deleteChannel: async (channeld: number): Promise<string> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.delete(
-      `https://edu.tardigrade.land/msg/protected/channel/${channeld}`,
-      {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
+  public async deleteChannel(channelId: number): Promise<string> {
+    try {
+      await this.client.delete(`/protected/channel/${channelId}`);
+      console.log("Channel deletion successful");
+      return "deleted";
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Channel deletion failed, invalid token");
       }
-    );
-
-    if (response.status == 401) {
-      throw new Error("Channel deletetion failed, invalid token");
-    } else if (response.status !== 200) {
-      throw new Error("Channel deletetion failed");
+      throw new Error("Channel deletion failed");
     }
+  }
 
-    if (response.status === 200) {
-      console.log("Channel deletetion successful");
-    }
-
-    return "deleted";
-  },
-
-  addUserToChannel: async (
+  public async addUserToChannel(
     channelId: number,
     userId: string
-  ): Promise<string> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.put(
-      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/user/${userId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
+  ): Promise<string> {
+    try {
+      await this.client.put(
+        `/protected/channel/${channelId}/user/${userId}`,
+        {}
+      );
+      console.log("User added to channel");
+      return "added";
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Can't add user to channel, invalid token");
       }
-    );
-
-    if (response.status == 401) {
-      throw new Error("Can't add user to channel, invalid token");
-    } else if (response.status !== 200) {
       throw new Error("Can't add user to channel");
     }
+  }
 
-    if (response.status === 200) {
-      console.log("User added to channel");
-    }
-
-    return "added";
-  },
-
-  banUserFromChannel: async (
+  public async banUserFromChannel(
     channelId: number,
     userId: string
-  ): Promise<string> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.delete(
-      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/user/${userId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
+  ): Promise<string> {
+    try {
+      await this.client.delete(
+        `/protected/channel/${channelId}/user/${userId}`
+      );
+      console.log("User removed from channel");
+      return "removed";
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Can't remove user from channel, invalid token");
       }
-    );
-
-    if (response.status == 401) {
-      throw new Error("Can't remove user from channel, invalid token");
-    } else if (response.status !== 200) {
       throw new Error("Can't remove user from channel");
     }
+  }
 
-    if (response.status === 200) {
-      console.log("User removed from channel");
-    }
-
-    return "removed";
-  },
-
-  updateChannel: async (
+  public async updateChannel(
     channelId: number,
     newChannelData: ChannelUpdateMetadata
-  ): Promise<string> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.put(
-      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/update_metadata`,
-      newChannelData,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      }
-    );
-
-    if (response.status == 401) {
-      throw new Error(
-        "Can't update channel, you don't have permissions to perform this action"
+  ): Promise<string> {
+    try {
+      await this.client.put(
+        `/protected/channel/${channelId}/update_metadata`,
+        newChannelData
       );
-    } else if (response.status !== 200) {
+      console.log("Channel updated");
+      return "updated";
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error(
+          "Can't update channel, you don't have permissions to perform this action"
+        );
+      }
       throw new Error("Can't update channel");
     }
+  }
 
-    if (response.status === 200) {
-      console.log("Channel updated");
-    }
-
-    return "updated";
-  },
-
-  getChannels: async (): Promise<ChannelMetadata[]> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.get(
-      `https://edu.tardigrade.land/msg/protected/user/channels`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
+  public async getChannels(): Promise<ChannelMetadata[]> {
+    try {
+      const response = await this.client.get<ChannelMetadata[]>(
+        `/protected/user/channels`
+      );
+      console.log("Channels retrieved");
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Can't get channels, invalid token");
       }
-    );
-
-    if (response.status == 401) {
-      throw new Error("Can't get channels, invalid token");
-    } else if (response.status !== 200) {
       throw new Error("Can't get channels");
     }
-
-    if (response.status === 200) {
-      console.log("Channels retrieved");
-    }
-
-    let data: ChannelMetadata[] = response.data;
-
-    return data;
-  },
+  }
 
   ///////////////////////////////////////
 
@@ -335,100 +235,67 @@ module.exports = {
   //////////// MESSAGES REQUESTS ////////////
   ///////////////////////////////////////////
 
-  getMessages: async (
+  public async getMessages(
     channelId: number,
     batchOffset: number
-  ): Promise<MessageMetadata[]> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.get(
-      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/messages/${batchOffset}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      }
-    );
-
-    if (response.status == 401) {
-      throw new Error(
-        "Can't get messages, user does not have permission to use this channel"
+  ): Promise<MessageMetadata[]> {
+    try {
+      const response = await this.client.get<MessageMetadata[]>(
+        `/protected/channel/${channelId}/messages/${batchOffset}`
       );
-    } else if (response.status !== 200) {
+      console.log("Messages retrieved");
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error(
+          "Can't get messages, user does not have permission to use this channel"
+        );
+      }
       throw new Error("Can't get messages");
     }
+  }
 
-    if (response.status === 200) {
-      console.log("Messages retrieved");
-    }
-
-    let data: MessageMetadata[] = response.data;
-
-    return data;
-  },
-
-  sendMessage: async (
+  public async sendMessage(
     channelId: number,
     newMessage: NewMessageData
-  ): Promise<string> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.post(
-      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/message`,
-      newMessage,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      }
-    );
-
-    if (response.status == 401) {
-      throw new Error(
-        "Can't sent message, user does not have permission to use this channel"
+  ): Promise<string> {
+    try {
+      await this.client.post(
+        `/protected/channel/${channelId}/message`,
+        newMessage
       );
-    } else if (response.status !== 200) {
+      console.log("Message sent");
+      return "sent";
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error(
+          "Can't send message, user does not have permission to use this channel"
+        );
+      }
       throw new Error("Can't send message");
     }
+  }
 
-    if (response.status === 200) {
-      console.log("Message sent");
-    }
-
-    return "sent";
-  },
-
-  updateMessage: async (
+  public async updateMessage(
     channelId: number,
     messageUpdate: MessageMetadata
-  ): Promise<string> => {
-    let jwtToken = await getJwt();
-
-    let response = await axios.post(
-      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/message/moderate`,
-      messageUpdate,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      }
-    );
-
-    if (response.status == 401) {
-      throw new Error(
-        "Can't moderate message, user does not have permission to use this channel"
+  ): Promise<string> {
+    try {
+      await this.client.post(
+        `/protected/channel/${channelId}/message/moderate`,
+        messageUpdate
       );
-    } else if (response.status !== 200) {
+      console.log("Message updated");
+      return "updated";
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error(
+          "Can't moderate message, user does not have permission to use this channel"
+        );
+      }
       throw new Error("Can't moderate message");
     }
+  }
+}
 
-    if (response.status === 200) {
-      console.log("Message updated");
-    }
-
-    return "updated";
-  },
-};
+export default new API();
