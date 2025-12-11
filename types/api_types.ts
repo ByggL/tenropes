@@ -17,7 +17,7 @@ export type NewChannelData = {
   img: string;
 };
 
-export type ChannelData = {
+export type ChannelMetadata = {
   id: number;
   name: string;
   img: string;
@@ -30,4 +30,16 @@ export type ChannelData = {
     accent_text_color: string;
   };
   users: string[];
+};
+
+export type ChannelUpdateMetadata = {
+  name: string;
+  img: string;
+  theme: {
+    primary_color: string;
+    primary_color_dark: string;
+    accent_color: string;
+    text_color: string;
+    accent_text_color: string;
+  };
 };

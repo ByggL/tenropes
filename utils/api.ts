@@ -1,4 +1,11 @@
-import { ExtendSessionResponse, LoginResponse, UserMetadata } from "@/types/api_types";
+import {
+  ChannelMetadata,
+  ChannelUpdateMetadata,
+  ExtendSessionResponse,
+  LoginResponse,
+  NewChannelData,
+  UserMetadata,
+} from "@/types/api_types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
@@ -17,7 +24,7 @@ const getJwt = async () => {
       return value;
     }
   } catch (e) {
-    throw new Error("Failed to retrieve JWT token");
+    throw new Error("Failed ton retrieve JWT token");
   }
 };
 
@@ -60,12 +67,15 @@ module.exports = {
   extendSession: async (): Promise<ExtendSessionResponse> => {
     let jwtToken = await getJwt();
 
-    let response = await axios.post("https://edu.tardigrade.land/msg/protected/extend_session", {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${jwtToken}`,
-      },
-    });
+    let response = await axios.post(
+      "https://edu.tardigrade.land/msg/protected/extend_session",
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
 
     if (response.status == 401) {
       throw new Error("Session extension failed, invalid token");
@@ -90,12 +100,15 @@ module.exports = {
   getUserData: async (): Promise<UserMetadata> => {
     let jwtToken = await getJwt();
 
-    let response = await axios.post("https://edu.tardigrade.land/msg/protected/user/meta", {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${jwtToken}`,
-      },
-    });
+    let response = await axios.post(
+      "https://edu.tardigrade.land/msg/protected/user/meta",
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
 
     if (response.status !== 200) {
       throw new Error("Can't retrieve user data");
@@ -113,12 +126,16 @@ module.exports = {
   postNewUserData: async (newUserData: UserMetadata): Promise<UserMetadata> => {
     let jwtToken = await getJwt();
 
-    let response = await axios.post("https://edu.tardigrade.land/msg/protected/user/meta", newUserData, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${jwtToken}`,
-      },
-    });
+    let response = await axios.post(
+      "https://edu.tardigrade.land/msg/protected/user/meta",
+      newUserData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
 
     if (response.status == 401) {
       throw new Error("User data modification failed, invalid token");
@@ -140,4 +157,173 @@ module.exports = {
   //////////////////////////////////////////
   //////////// CHANNEL REQUESTS ////////////
   //////////////////////////////////////////
+  createNewChannel: async (newChannelData: NewChannelData): Promise<number> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.post(
+      "https://edu.tardigrade.land/msg/protected/channel",
+      newChannelData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
+
+    if (response.status == 401) {
+      throw new Error("Cchannel creation failed, invalid token");
+    } else if (response.status !== 200) {
+      throw new Error("Channel creation failed");
+    }
+
+    if (response.status === 200) {
+      console.log("Channel creation successful");
+    }
+
+    let newChannelId: number = response.data;
+
+    return newChannelId;
+  },
+
+  deleteChannel: async (channeld: number): Promise<string> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.delete(
+      `https://edu.tardigrade.land/msg/protected/channel/${channeld}`,
+      {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
+
+    if (response.status == 401) {
+      throw new Error("Channel deletetion failed, invalid token");
+    } else if (response.status !== 200) {
+      throw new Error("Channel deletetion failed");
+    }
+
+    if (response.status === 200) {
+      console.log("Channel deletetion successful");
+    }
+
+    return "deleted";
+  },
+
+  addUserToChannel: async (
+    channelId: number,
+    userId: string
+  ): Promise<string> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.put(
+      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/user/${userId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
+
+    if (response.status == 401) {
+      throw new Error("Can't add user to channel, invalid token");
+    } else if (response.status !== 200) {
+      throw new Error("Can't add user to channel");
+    }
+
+    if (response.status === 200) {
+      console.log("User added to channel");
+    }
+
+    return "added";
+  },
+
+  banUserFromChannel: async (
+    channelId: number,
+    userId: string
+  ): Promise<string> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.delete(
+      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/user/${userId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
+
+    if (response.status == 401) {
+      throw new Error("Can't remove user from channel, invalid token");
+    } else if (response.status !== 200) {
+      throw new Error("Can't remove user from channel");
+    }
+
+    if (response.status === 200) {
+      console.log("User removed from channel");
+    }
+
+    return "removed";
+  },
+
+  updateChannel: async (
+    channelId: number,
+    newChannelData: ChannelUpdateMetadata
+  ): Promise<string> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.put(
+      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/update_metadata`,
+      newChannelData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
+
+    if (response.status == 401) {
+      throw new Error(
+        "Can't update channel, you don't have permissions to perform this action"
+      );
+    } else if (response.status !== 200) {
+      throw new Error("Can't update channel");
+    }
+
+    if (response.status === 200) {
+      console.log("Channel updated");
+    }
+
+    return "updated";
+  },
+
+  getChannels: async (): Promise<ChannelMetadata[]> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.put(
+      `https://edu.tardigrade.land/msg/protected/user/channels`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
+
+    if (response.status == 401) {
+      throw new Error("Can't get channels, invalid token");
+    } else if (response.status !== 200) {
+      throw new Error("Can't get channels");
+    }
+
+    if (response.status === 200) {
+      console.log("Channels retrieved");
+    }
+
+    let data: ChannelMetadata[] = response.data;
+
+    return data;
+  },
 };
