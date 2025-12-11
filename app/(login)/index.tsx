@@ -19,6 +19,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [wrongIdentifiers, setWrongIdentifiers] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -32,14 +33,16 @@ export default function LoginScreen() {
     console.log(`Attempting login for: ${email}`);
 
     try {
-      const result = api.login(email, password);
+      const result = await api.login(email, password);
       console.log(result);
       console.log("Login successful. Simulating navigation to main content.");
-
+      setWrongIdentifiers(false);
       setLoading(false);
       router.replace("/(tabs)/canalPage");
     } catch (error) {
       console.log(error);
+      setWrongIdentifiers(true);
+      setLoading(false);
     }
 
     // Add a small delay to simulate network latency for better UX
@@ -79,6 +82,12 @@ export default function LoginScreen() {
           editable={!loading}
         />
 
+        {/* Error Message */}
+        <Text style={styles.errorMessage}>
+          {wrongIdentifiers
+            ? "Nom d'utilisateur et/ou mot de passe invalide"
+            : ""}
+        </Text>
         {/* Login Button */}
         <Pressable
           style={({ pressed }) => [
@@ -98,6 +107,10 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  errorMessage: {
+    color: "red",
+    paddingHorizontal: 15,
+  },
   container: {
     flex: 1,
     justifyContent: "center",
