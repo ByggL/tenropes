@@ -43,3 +43,18 @@ export type ChannelUpdateMetadata = {
     accent_text_color: string;
   };
 };
+
+export type MessageMetadata = {
+  channel_id: number;
+  timestamp: number;
+  author: string;
+  content: {
+    type: string;
+    value: string;
+  };
+};
+
+export type NewMessageData = {
+  type: string;
+  value: string;
+};

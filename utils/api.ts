@@ -3,7 +3,9 @@ import {
   ChannelUpdateMetadata,
   ExtendSessionResponse,
   LoginResponse,
+  MessageMetadata,
   NewChannelData,
+  NewMessageData,
   UserMetadata,
 } from "@/types/api_types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -302,7 +304,7 @@ module.exports = {
   getChannels: async (): Promise<ChannelMetadata[]> => {
     let jwtToken = await getJwt();
 
-    let response = await axios.put(
+    let response = await axios.get(
       `https://edu.tardigrade.land/msg/protected/user/channels`,
       {
         headers: {
@@ -325,5 +327,108 @@ module.exports = {
     let data: ChannelMetadata[] = response.data;
 
     return data;
+  },
+
+  ///////////////////////////////////////
+
+  ///////////////////////////////////////////
+  //////////// MESSAGES REQUESTS ////////////
+  ///////////////////////////////////////////
+
+  getMessages: async (
+    channelId: number,
+    batchOffset: number
+  ): Promise<MessageMetadata[]> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.get(
+      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/messages/${batchOffset}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
+
+    if (response.status == 401) {
+      throw new Error(
+        "Can't get messages, user does not have permission to use this channel"
+      );
+    } else if (response.status !== 200) {
+      throw new Error("Can't get messages");
+    }
+
+    if (response.status === 200) {
+      console.log("Messages retrieved");
+    }
+
+    let data: MessageMetadata[] = response.data;
+
+    return data;
+  },
+
+  sendMessage: async (
+    channelId: number,
+    newMessage: NewMessageData
+  ): Promise<string> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.post(
+      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/message`,
+      newMessage,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
+
+    if (response.status == 401) {
+      throw new Error(
+        "Can't sent message, user does not have permission to use this channel"
+      );
+    } else if (response.status !== 200) {
+      throw new Error("Can't send message");
+    }
+
+    if (response.status === 200) {
+      console.log("Message sent");
+    }
+
+    return "sent";
+  },
+
+  updateMessage: async (
+    channelId: number,
+    messageUpdate: MessageMetadata
+  ): Promise<string> => {
+    let jwtToken = await getJwt();
+
+    let response = await axios.post(
+      `https://edu.tardigrade.land/msg/protected/channel/${channelId}/message/moderate`,
+      messageUpdate,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      }
+    );
+
+    if (response.status == 401) {
+      throw new Error(
+        "Can't moderate message, user does not have permission to use this channel"
+      );
+    } else if (response.status !== 200) {
+      throw new Error("Can't moderate message");
+    }
+
+    if (response.status === 200) {
+      console.log("Message updated");
+    }
+
+    return "updated";
   },
 };
