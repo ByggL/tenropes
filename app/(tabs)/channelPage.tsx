@@ -1,7 +1,21 @@
 import { StyleSheet, Text, View } from "react-native";
 
+interface ChannelPageProps {
+    id: number;
+  name: string;
+  img: string;
+  creator: string;
+  theme: {
+    primary_color: string;
+    primary_color_dark: string;
+    accent_color: string;
+    text_color: string;
+    accent_text_color: string;
+  };
+  users: string[];
+}
 
-export default function CanalPage(){
+export default function ChannelPage(){
     const hasError : boolean = false;
      
     return (
