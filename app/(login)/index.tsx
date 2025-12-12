@@ -1,8 +1,10 @@
 import api from "@/utils/api";
+import { getJwt } from "@/utils/jwt";
 
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -14,17 +16,48 @@ import {
 } from "react-native";
 
 // Assuming you are in app/(login)/loginPage.tsx
-export default async function LoginScreen() {
+export default function LoginScreen() {
   const router = useRouter();
-
-  // const response = await getJwt();
-  // console.log("initializing App");
-  // console.log(response);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [wrongIdentifiers, setWrongIdentifiers] = useState(false);
+
+  // State to handle initial token check
+  const [isCheckingToken, setIsCheckingToken] = useState(true);
+
+  useEffect(() => {
+    const checkToken = async () => {
+      try {
+        // Fetch the stored object
+        const data: any = await getJwt();
+        const { token, timestamp } = data;
+
+        if (token && timestamp) {
+          const now = Date.now();
+          const threeHoursInMs = 3 * 60 * 60 * 1000;
+
+          // Check if token is less than 3 hours old
+          if (now - timestamp < threeHoursInMs) {
+            console.log("Valid session found, redirecting...");
+            router.replace({
+              pathname: "/(tabs)/canalPage",
+              params: { token: token }, // Transmitting the token
+            });
+            return;
+          }
+        }
+      } catch (error) {
+        console.log("Error checking token:", error);
+      } finally {
+        // Stop checking and show login form if no valid token found
+        setIsCheckingToken(false);
+      }
+    };
+
+    checkToken();
+  }, []);
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -56,6 +89,15 @@ export default async function LoginScreen() {
 
     // // --- 2. Log Success Message ---
   };
+
+  // Show a loading spinner while we check the token
+  if (isCheckingToken) {
+    return (
+      <View style={[styles.container, { alignItems: "center" }]}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
