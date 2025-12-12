@@ -31,7 +31,7 @@ class API {
       if (config.url?.includes("/protected/")) {
         const token = await getJwt();
         if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+          config.headers.Authorization = `Bearer ${token.token}`;
         }
       }
       return config;
@@ -89,16 +89,14 @@ class API {
   ///////////////////////////////////////
   //////////// USER REQUESTS ////////////
   ///////////////////////////////////////
-  public async getUserData(): Promise<UserMetadata> {
+  public async getUserData(users: string): Promise<UserMetadata> {
     try {
-      const response = await this.client.post<UserMetadata>(
-        "/protected/user/meta",
-        {}
-      );
+      const url = `/protected/user/meta?users=${users}`;
+      const response = await this.client.get<UserMetadata>(url, {});
       console.log("Retrieved user data");
       return response.data;
     } catch (error) {
-      throw new Error("Can't retrieve user data");
+      throw new Error(error as string);
     }
   }
 

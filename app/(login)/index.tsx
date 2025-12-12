@@ -1,5 +1,6 @@
 import api from "@/utils/api";
 import { getJwt } from "@/utils/jwt";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -33,7 +34,7 @@ export default function LoginScreen() {
         // Fetch the stored object
         const data: any = await getJwt();
         const { token, timestamp } = data;
-
+        console.log("oupsi");
         if (token && timestamp) {
           const now = Date.now();
           const threeHoursInMs = 3 * 60 * 60 * 1000;
@@ -74,6 +75,8 @@ export default function LoginScreen() {
       const result = await api.login(username, password);
       console.log(result);
       console.log("Login successful. Simulating navigation to main content.");
+      console.log(username);
+      await AsyncStorage.setItem("currentUsername", username);
       setWrongIdentifiers(false);
       setLoading(false);
       router.replace("/(tabs)/canalPage");
