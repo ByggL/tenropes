@@ -1,4 +1,5 @@
 import api from "@/utils/api";
+
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -13,16 +14,20 @@ import {
 } from "react-native";
 
 // Assuming you are in app/(login)/loginPage.tsx
-export default function LoginScreen() {
+export default async function LoginScreen() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
+  // const response = await getJwt();
+  // console.log("initializing App");
+  // console.log(response);
+
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [wrongIdentifiers, setWrongIdentifiers] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    if (!username || !password) {
       Alert.alert("Error", "Please enter both email and password.");
       return;
     }
@@ -30,10 +35,10 @@ export default function LoginScreen() {
     setLoading(true);
 
     // --- 1. Simulate API/Auth Logic ---
-    console.log(`Attempting login for: ${email}`);
+    console.log(`Attempting login for: ${username}`);
 
     try {
-      const result = await api.login(email, password);
+      const result = await api.login(username, password);
       console.log(result);
       console.log("Login successful. Simulating navigation to main content.");
       setWrongIdentifiers(false);
@@ -42,6 +47,7 @@ export default function LoginScreen() {
     } catch (error) {
       console.log(error);
       setWrongIdentifiers(true);
+      setPassword("");
       setLoading(false);
     }
 
@@ -62,10 +68,10 @@ export default function LoginScreen() {
         {/* Email Input */}
         <TextInput
           style={styles.input}
-          placeholder="Email Address"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
+          placeholder="Username"
+          value={username}
+          onChangeText={setUsername}
+          keyboardType="default"
           autoCapitalize="none"
           placeholderTextColor="#999"
           editable={!loading}
@@ -84,9 +90,7 @@ export default function LoginScreen() {
 
         {/* Error Message */}
         <Text style={styles.errorMessage}>
-          {wrongIdentifiers
-            ? "Nom d'utilisateur et/ou mot de passe invalide"
-            : ""}
+          {wrongIdentifiers ? "Wrong username and/or password" : ""}
         </Text>
         {/* Login Button */}
         <Pressable
