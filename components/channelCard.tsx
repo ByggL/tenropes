@@ -27,8 +27,6 @@ export default function ChannelCard({
             params: {
               // serialize objects to strings
               channel: JSON.stringify(channelMetadata),
-              // It is recommended to fetch messages on the next page rather than passing them here
-              messages: JSON.stringify([]),
             },
           });
         }}

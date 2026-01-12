@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 
-import { ChannelMetadata, MessageMetadata } from "@/types/types";
+import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
 import api from "@/utils/api";
 import { useLocalSearchParams } from "expo-router";
 
@@ -27,21 +27,47 @@ interface ChatChannelProps {
 
 export default function ChatChannel() {
   // 1. Get the strings from the URL
-  const { channel, messages } = useLocalSearchParams();
-
-  // 2. Parse them back into objects safely
-  const parsedChannel: ChannelMetadata = channel
-    ? JSON.parse(channel as string)
+  const channelParam = useLocalSearchParams().channel;
+  const channel: ChannelMetadata = channelParam
+    ? JSON.parse(channelParam as string)
     : null;
 
-  const parsedMessages: MessageMetadata[] = messages
-    ? JSON.parse(messages as string)
-    : [];
+  // console.log(channelParam);
+
+  const [messages, setMessages] = useState<MessageMetadata[]>([]);
+  const [members, setMembers] = useState<UserMetadata[]>([]);
+
+  useEffect(() => {
+    // console.log("Fetching messages for channel " + channel.id);s.leobon 25b7e7a7fc11979b
+    api.getMessages(channel.id, 0).then((result) => {
+      setMessages(result);
+      // console.log(result);
+    });
+
+    api.getUserData(channel.users).then((result) => setMembers(result));
+
+    ////////// WEBSOCKET
+    const socket = new WebSocket(
+      `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`
+    );
+
+    socket.onopen = () => {
+      console.log("Connected!");
+    };
+
+    socket.onmessage = (event) => {
+      const newMessage = JSON.parse(event.data);
+      setMessages((prev) => [...prev, newMessage]);
+    };
+
+    // Cleanup on unmount
+    return () => socket.close();
+  }, []);
 
   const [inputText, setInputText] = useState("");
   const flatListRef = useRef<FlatList>(null);
-  const theme = parsedChannel.theme
-    ? parsedChannel.theme
+  const theme = channel.theme
+    ? channel.theme
     : {
         primary_color: "#E91E63",
         primary_color_dark: "#C2185B",
@@ -52,8 +78,8 @@ export default function ChatChannel() {
 
   const handleSend = () => {
     if (inputText.trim().length === 0) return;
-    api.sendMessage(parsedChannel.id, {
-      type: "text",
+    api.sendMessage(channel.id, {
+      type: "Text",
       value: inputText.trim(),
     });
     setInputText("");
@@ -62,6 +88,10 @@ export default function ChatChannel() {
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const getUserFromName = (username: string) => {
+    return members.find((member) => member.username == username);
   };
 
   const renderMessage = ({
@@ -73,10 +103,16 @@ export default function ChatChannel() {
   }) => {
     // Détection basique pour savoir si on groupe les messages du même auteur
     const isSameAuthor =
-      index > 0 && parsedMessages[index - 1].author === item.author;
+      index > 0 && messages[index - 1].author === item.author;
 
     // Placeholder pour l'avatar (en prod, utiliser l'image utilisateur réelle)
     const avatarUrl = `https://pixelcorner.fr/cdn/shop/articles/le-nyan-cat-618805.webp?v=1710261022&width=2048`;
+
+    const author = getUserFromName(item.author);
+
+    const senderAvatar = () => {
+      return author?.img || avatarUrl;
+    };
 
     return (
       <View
@@ -86,7 +122,7 @@ export default function ChatChannel() {
         ]}
       >
         {!isSameAuthor ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          <Image source={{ uri: senderAvatar() }} style={styles.avatar} />
         ) : (
           <View style={styles.avatarPlaceholder} />
         )}
@@ -134,14 +170,15 @@ export default function ChatChannel() {
           #
         </Text>
         <Text style={[styles.channelName, { color: theme.text_color }]}>
-          {parsedChannel.name}
+          {channel.name}
         </Text>
       </View>
 
       {/* Liste des Messages */}
       <FlatList
         ref={flatListRef}
-        data={parsedMessages}
+        data={messages}
+        key={JSON.stringify(messages)}
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderMessage}
         contentContainerStyle={styles.listContent}
@@ -174,7 +211,7 @@ export default function ChatChannel() {
                 backgroundColor: theme.primary_color_dark,
               },
             ]}
-            placeholder={`Envoyer un message dans #${parsedChannel.name}`}
+            placeholder={`Envoyer un message dans #${channel.name}`}
             placeholderTextColor="#72767d"
             value={inputText}
             onChangeText={setInputText}
