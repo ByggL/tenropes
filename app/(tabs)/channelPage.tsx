@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -14,59 +14,61 @@ import {
 
 import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
 import api from "@/utils/api";
-import { useLocalSearchParams } from "expo-router";
-
-// --- Props du Composant ---
+import { useFocusEffect, useLocalSearchParams } from "expo-router"; // 1. Import useFocusEffect
 
 interface ChatChannelProps {
   channel: ChannelMetadata;
   messages: MessageMetadata[];
 }
 
-// --- Composant Principal ---
-
 export default function ChatChannel() {
-  // 1. Get the strings from the URL
   const channelParam = useLocalSearchParams().channel;
   const channel: ChannelMetadata = channelParam
     ? JSON.parse(channelParam as string)
     : null;
 
-  // console.log(channelParam);
-
   const [messages, setMessages] = useState<MessageMetadata[]>([]);
   const [members, setMembers] = useState<UserMetadata[]>([]);
-
-  useEffect(() => {
-    // console.log("Fetching messages for channel " + channel.id);s.leobon 25b7e7a7fc11979b
-    api.getMessages(channel.id, 0).then((result) => {
-      setMessages(result);
-      // console.log(result);
-    });
-
-    api.getUserData(channel.users).then((result) => setMembers(result));
-
-    ////////// WEBSOCKET
-    const socket = new WebSocket(
-      `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`
-    );
-
-    socket.onopen = () => {
-      console.log("Connected!");
-    };
-
-    socket.onmessage = (event) => {
-      const newMessage = JSON.parse(event.data);
-      setMessages((prev) => [...prev, newMessage]);
-    };
-
-    // Cleanup on unmount
-    return () => socket.close();
-  }, []);
-
   const [inputText, setInputText] = useState("");
   const flatListRef = useRef<FlatList>(null);
-  const theme = channel.theme
+
+  // 2. Use useFocusEffect instead of useEffect
+  useFocusEffect(
+    useCallback(() => {
+      if (!channel) return;
+
+      console.log("Refreshing channel " + channel.id);
+
+      // A. Fetch initial data
+      api.getMessages(channel.id, 0).then((result) => {
+        setMessages(result);
+      });
+
+      api.getUserData(channel.users).then((result) => setMembers(result));
+
+      // B. Setup WebSocket
+      const socket = new WebSocket(
+        `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`
+      );
+
+      socket.onopen = () => {
+        console.log("Connected!");
+      };
+
+      socket.onmessage = (event) => {
+        const newMessage = JSON.parse(event.data);
+        setMessages((prev) => [...prev, newMessage]);
+      };
+
+      // C. Cleanup function (runs when you leave the screen or blur)
+      return () => {
+        console.log("Closing socket for channel " + channel.id);
+        socket.close();
+      };
+    }, [channel?.id]) // Re-run if channel ID changes
+  );
+
+  const theme = channel?.theme
     ? channel.theme
     : {
         primary_color: "#E91E63",
@@ -101,11 +103,9 @@ export default function ChatChannel() {
     item: MessageMetadata;
     index: number;
   }) => {
-    // Détection basique pour savoir si on groupe les messages du même auteur
     const isSameAuthor =
       index > 0 && messages[index - 1].author === item.author;
 
-    // Placeholder pour l'avatar (en prod, utiliser l'image utilisateur réelle)
     const avatarUrl = `https://pixelcorner.fr/cdn/shop/articles/le-nyan-cat-618805.webp?v=1710261022&width=2048`;
 
     const author = getUserFromName(item.author);
@@ -164,7 +164,6 @@ export default function ChatChannel() {
         backgroundColor={theme.primary_color_dark}
       />
 
-      {/* Header du Canal */}
       <View
         style={[
           styles.header,
@@ -178,15 +177,14 @@ export default function ChatChannel() {
           #
         </Text>
         <Text style={[styles.channelName, { color: theme.text_color }]}>
-          {channel.name}
+          {channel?.name}
         </Text>
       </View>
 
-      {/* Liste des Messages */}
       <FlatList
         ref={flatListRef}
         data={messages}
-        key={JSON.stringify(messages)}
+        // Force re-render when messages change
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderMessage}
         contentContainerStyle={styles.listContent}
@@ -196,7 +194,6 @@ export default function ChatChannel() {
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
 
-      {/* Zone de Saisie */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
@@ -219,7 +216,7 @@ export default function ChatChannel() {
                 backgroundColor: theme.primary_color_dark,
               },
             ]}
-            placeholder={`Envoyer un message dans #${channel.name}`}
+            placeholder={`Envoyer un message dans #${channel?.name}`}
             placeholderTextColor="#72767d"
             value={inputText}
             onChangeText={setInputText}
@@ -227,7 +224,6 @@ export default function ChatChannel() {
           />
 
           <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
-            {/* Icône d'envoi simplifiée */}
             <Text style={{ color: theme.accent_color, fontWeight: "bold" }}>
               →
             </Text>
@@ -237,8 +233,6 @@ export default function ChatChannel() {
     </View>
   );
 }
-
-// --- Styles ---
 
 const styles = StyleSheet.create({
   container: {
@@ -273,7 +267,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   messageContainerCompact: {
-    marginTop: 2, // Espacement réduit pour les messages successifs
+    marginTop: 2,
   },
   avatar: {
     width: 40,
@@ -307,7 +301,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 8,
     marginTop: 6,
-    backgroundColor: "#202225", // Dark placeholder typical of Discord
+    backgroundColor: "#202225",
     overflow: "hidden",
   },
   messageText: {

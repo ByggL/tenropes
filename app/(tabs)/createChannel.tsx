@@ -9,14 +9,18 @@ import {
   StyleSheet,
   Text,
 } from "react-native";
-import { NewChannelData } from "../../types/types";
+import { NewChannelData, Theme } from "../../types/types";
 import api from "../../utils/api";
 
 export default function CreateChannelPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const handleCreate = async (data: { name: string; img: string }) => {
+  const handleCreate = async (data: {
+    name: string;
+    img: string;
+    theme: Theme;
+  }) => {
     if (!data.name.trim()) {
       Alert.alert("Error", "Please enter a channel name.");
       return;
@@ -27,8 +31,9 @@ export default function CreateChannelPage() {
       const newChannelData: NewChannelData = {
         name: data.name,
         img: data.img || "https://placehold.co/200x200/png",
+        theme: data.theme,
       };
-
+      console.log(data.theme);
       await api.createNewChannel(newChannelData); //
 
       Alert.alert("Success", "Channel created successfully!", [

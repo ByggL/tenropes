@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
-import ChannelForm from "./channelCreaModifForm"; // Import the form
+import ChannelForm from "./channelCreaModifForm";
 
 interface ChannelCardProps {
   channelMetadata: ChannelMetadata;
@@ -25,7 +25,6 @@ export default function ChannelCard({
 }: ChannelCardProps) {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  // 'menu' shows options, 'edit' shows the form
   const [modalMode, setModalMode] = useState<"menu" | "edit">("menu");
   const [loading, setLoading] = useState(false);
 
@@ -40,30 +39,31 @@ export default function ChannelCard({
   };
 
   const handleLongPress = () => {
-    setModalMode("menu"); // Reset to menu when opening
+    setModalMode("menu");
     setModalVisible(true);
   };
 
-  // Switch to Edit Mode inside the Modal
   const handleModifyPress = () => {
     setModalMode("edit");
   };
 
-  // Handle the Form Submission
-  const handleUpdateSubmit = async (data: { name: string; img: string }) => {
+  const handleUpdateSubmit = async (data: {
+    name: string;
+    img: string;
+    theme: any;
+  }) => {
     setLoading(true);
     try {
-      // We must preserve the existing theme as the API requires it
       const updateData: ChannelUpdateMetadata = {
         name: data.name,
         img: data.img,
-        theme: channelMetadata.theme, //
+        theme: data.theme, // ✅ Update with the new theme from the form
       };
 
-      await api.updateChannel(channelMetadata.id, updateData); //
+      await api.updateChannel(channelMetadata.id, updateData);
 
       setModalVisible(false);
-      onUpdate(); // Refresh the list
+      onUpdate();
       Alert.alert("Success", "Channel updated.");
     } catch (error) {
       console.error("Update failed", error);
@@ -95,9 +95,11 @@ export default function ChannelCard({
           style={styles.modalOverlay}
           onPress={() => setModalVisible(false)}
         >
-          {/* Prevent clicks inside content from closing modal */}
-          <Pressable style={styles.modalContent} onPress={() => {}}>
-            {/* --- MENU MODE --- */}
+          {/* Stop propagation so clicking the form doesn't close modal */}
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
             {modalMode === "menu" ? (
               <>
                 <Text style={styles.modalTitle}>Channel Options</Text>
@@ -134,11 +136,11 @@ export default function ChannelCard({
                   initialData={{
                     name: channelMetadata.name,
                     img: channelMetadata.img,
-                    theme: channelMetadata.theme,
+                    theme: channelMetadata.theme, // 👈 THIS IS THE FIX
                   }}
                   onSubmit={handleUpdateSubmit}
                   submitLabel="Save Changes"
-                  onCancel={() => setModalMode("menu")} // Go back to menu
+                  onCancel={() => setModalMode("menu")}
                   loading={loading}
                 />
               </>
@@ -175,7 +177,6 @@ export default function ChannelCard({
 }
 
 const styles = StyleSheet.create({
-  // ... (Keep your existing styles for cardWrapper, cardContainer, etc.)
   cardWrapper: {
     paddingHorizontal: 20,
     paddingVertical: 8,
@@ -219,8 +220,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#8E8E93",
   },
-
-  // --- Modal Styles ---
   modalOverlay: {
     flex: 1,
     justifyContent: "center",

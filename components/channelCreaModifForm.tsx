@@ -143,6 +143,9 @@ export default function ChannelForm({
 
   const handleSubmit = () => {
     onSubmit({ name, img, theme });
+    setName("");
+    setImg("");
+    setTheme(PRESETS[0].theme);
   };
 
   return (

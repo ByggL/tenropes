@@ -248,7 +248,7 @@ class API {
         `/protected/channel/${channelId}/messages/${batchOffset}`
       );
       console.log("Messages retrieved");
-      console.log("Message data :" + JSON.stringify(response));
+      // console.log("Message data :" + JSON.stringify(response));
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
