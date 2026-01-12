@@ -12,9 +12,18 @@ export type UserMetadata = {
   status: string;
 };
 
+export type Theme = {
+  primary_color: string;
+  primary_color_dark: string;
+  accent_color: string;
+  text_color: string;
+  accent_text_color: string;
+};
+
 export type NewChannelData = {
   name: string;
   img: string;
+  theme?: Theme; // Made optional for backward compatibility
 };
 
 export type ChannelMetadata = {

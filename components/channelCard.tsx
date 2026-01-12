@@ -134,6 +134,7 @@ export default function ChannelCard({
                   initialData={{
                     name: channelMetadata.name,
                     img: channelMetadata.img,
+                    theme: channelMetadata.theme,
                   }}
                   onSubmit={handleUpdateSubmit}
                   submitLabel="Save Changes"
