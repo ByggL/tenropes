@@ -137,11 +137,19 @@ export default function ChatChannel() {
             </View>
           )}
 
-          <Text
-            style={[styles.messageText, { color: theme.accent_text_color }]}
-          >
-            {item.content.value}
-          </Text>
+          {item.content.type == "Text" ? (
+            <Text
+              style={[styles.messageText, { color: theme.accent_text_color }]}
+            >
+              {item.content.value}
+            </Text>
+          ) : (
+            <Image
+              source={{ uri: item.content.value }}
+              style={styles.imageAttachment}
+              resizeMode="cover"
+            />
+          )}
         </View>
       </View>
     );
@@ -293,6 +301,14 @@ const styles = StyleSheet.create({
   timestamp: {
     color: "#72767d",
     fontSize: 12,
+  },
+  imageAttachment: {
+    width: 280,
+    height: 180,
+    borderRadius: 8,
+    marginTop: 6,
+    backgroundColor: "#202225", // Dark placeholder typical of Discord
+    overflow: "hidden",
   },
   messageText: {
     fontSize: 15,
