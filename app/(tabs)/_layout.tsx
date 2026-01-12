@@ -36,22 +36,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="createCanal"
         options={{
-          title: "create",
-          tabBarIcon: ({ color }) => <TabBarIcon name="bell" color={color} />,
+          title: "Create",
+          tabBarIcon: ({ color }) => <TabBarIcon name="plus" color={color} />,
         }}
       />
       <Tabs.Screen
         name="selectionCanalPage"
         options={{
-          title: "select",
-          tabBarIcon: ({ color }) => <TabBarIcon name="bell" color={color} />,
+          title: "Select",
+          tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
         }}
       />
       <Tabs.Screen
         name="userProfile"
         options={{
-          title: "user",
-          tabBarIcon: ({ color }) => <TabBarIcon name="bell" color={color} />,
+          title: "User",
+          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
       />
     </Tabs>
