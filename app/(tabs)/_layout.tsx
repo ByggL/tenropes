@@ -37,7 +37,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="createCanal"
+        name="createChannel"
         options={{
           headerShown: false,
           title: "Create",

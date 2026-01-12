@@ -15,21 +15,22 @@ import api from "../../utils/api";
 export default function ChannelSelectionPage() {
   const [channels, setChannels] = useState<ChannelMetadata[]>([]);
   const [loading, setLoading] = useState(true);
+  // Define the fetch function so it can be reused
+  const fetchChannels = async () => {
+    try {
+      // Don't necessarily set loading to true here to avoid flickering on every delete
+      const channelsData = await api.getChannels();
+      setChannels(channelsData);
+    } catch (error) {
+      console.error("Error fetching channels:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
-      const fetchChannels = async () => {
-        try {
-          setLoading(true);
-          const channelsData = await api.getChannels();
-          setChannels(channelsData);
-        } catch (error) {
-          console.error("Error fetching channels:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
+      setLoading(true);
       fetchChannels();
     }, [])
   );
@@ -51,7 +52,9 @@ export default function ChannelSelectionPage() {
         <FlatList
           data={channels}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => <ChannelCard channelMetadata={item} />}
+          renderItem={({ item }) => (
+            <ChannelCard channelMetadata={item} onUpdate={fetchChannels} />
+          )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
