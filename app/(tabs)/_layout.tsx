@@ -41,7 +41,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="selectionCanalPage"
+        name="channelSelectionPage"
         options={{
           title: "Select",
           tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,

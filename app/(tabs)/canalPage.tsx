@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 export default function CanalPage() {
   const hasError: boolean = false;
-
+  console.log("Hello");
   return (
     <View style={styles.container}>
       <Text style={styles.titles}>Congrats u are connected ^^ </Text>
