@@ -28,11 +28,19 @@ export default function ChannelCard({ channelMetadata }: ChannelCardProps) {
   return (
     <View style={styles.cardWrapper}>
       <Pressable
-        onPress={handlePress}
-        style={({ pressed }) => [
-          styles.cardContainer,
-          pressed && styles.cardPressed, // Visual feedback on press
-        ]}
+        onPress={() => {
+          console.log("Access to channel:", channelMetadata.name);
+          const props = {
+            channel: channelMetadata,
+          };
+          router.push({
+            pathname: "/(tabs)/channelPage",
+            params: {
+              // serialize objects to strings
+              channel: JSON.stringify(channelMetadata),
+            },
+          });
+        }}
       >
         <Image
           source={{ uri: channelMetadata.img }}

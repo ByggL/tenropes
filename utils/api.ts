@@ -15,6 +15,8 @@ class API {
   private readonly client: AxiosInstance;
   private readonly baseUrl = "https://edu.tardigrade.land/msg";
 
+  public jwtToken: string = "";
+
   constructor() {
     this.client = axios.create({
       baseURL: this.baseUrl,
@@ -27,9 +29,11 @@ class API {
         config.headers["Content-Type"] = "application/json";
       }
 
+      const token = await getJwt();
+      if (token) this.jwtToken = token.token;
+
       // Only add auth token for protected routes
       if (config.url?.includes("/protected/")) {
-        const token = await getJwt();
         if (token) {
           config.headers.Authorization = `Bearer ${token.token}`;
         }
@@ -54,6 +58,7 @@ class API {
 
       console.log("Login successful");
       const { data } = response;
+      this.jwtToken = data.token;
       await storeJwt(data.token);
       return data;
     } catch (error) {
@@ -89,10 +94,11 @@ class API {
   ///////////////////////////////////////
   //////////// USER REQUESTS ////////////
   ///////////////////////////////////////
-  public async getUserData(users: string): Promise<UserMetadata> {
+  public async getUserData(users: string[]): Promise<UserMetadata[]> {
     try {
-      const url = `/protected/user/meta?users=${users}`;
-      const response = await this.client.get<UserMetadata>(url, {});
+      const usersString = users.join(",");
+      const url = `/protected/user/meta?users=${usersString}`;
+      const response = await this.client.get<UserMetadata[]>(url, {});
       console.log("Retrieved user data");
       return response.data;
     } catch (error) {
@@ -242,6 +248,7 @@ class API {
         `/protected/channel/${channelId}/messages/${batchOffset}`
       );
       console.log("Messages retrieved");
+      console.log("Message data :" + JSON.stringify(response));
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -270,7 +277,7 @@ class API {
           "Can't send message, user does not have permission to use this channel"
         );
       }
-      throw new Error("Can't send message");
+      throw new Error("Can't send message: " + error);
     }
   }
 
