@@ -27,7 +27,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="canalPage"
+        name="channelPage"
         options={{
           title: "Connected",
           tabBarIcon: ({ color }) => <TabBarIcon name="bell" color={color} />,

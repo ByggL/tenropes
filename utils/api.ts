@@ -7,7 +7,7 @@ import {
   NewChannelData,
   NewMessageData,
   UserMetadata,
-} from "@/types/api_types";
+} from "@/types/types";
 import axios, { AxiosInstance } from "axios";
 import { getJwt, storeJwt } from "./jwt";
 
@@ -225,7 +225,7 @@ class API {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Can't get channels, invalid token");
       }
-      throw new Error("Can't get channels");
+      throw new Error(`Can't get channels : ${error}`);
     }
   }
 
