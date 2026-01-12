@@ -1,11 +1,13 @@
+import logo from "@/assets/images/tenropes_proposition.png";
 import api from "@/utils/api";
 import { getJwt } from "@/utils/jwt";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -33,7 +35,7 @@ export default function LoginScreen() {
         // Fetch the stored object
         const data: any = await getJwt();
         const { token, timestamp } = data;
-
+        // console.log("oupsi");
         if (token && timestamp) {
           const now = Date.now();
           const threeHoursInMs = 3 * 60 * 60 * 1000;
@@ -74,6 +76,8 @@ export default function LoginScreen() {
       const result = await api.login(username, password);
       console.log(result);
       console.log("Login successful. Simulating navigation to main content.");
+      console.log(username);
+      await AsyncStorage.setItem("currentUsername", username);
       setWrongIdentifiers(false);
       setLoading(false);
       router.replace("/(tabs)/canalPage");
@@ -106,7 +110,7 @@ export default function LoginScreen() {
     >
       <View style={styles.form}>
         <Text style={styles.title}>Welcome Back </Text>
-
+        <Image source={logo} style={styles.image} />
         {/* Email Input */}
         <TextInput
           style={styles.input}
@@ -162,6 +166,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 30,
     backgroundColor: "#f5f5f5",
+  },
+  image: {
+    width: 250,
+    height: 150,
+    justifyContent: "center",
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "gray",
+    resizeMode: "cover",
   },
   form: {
     backgroundColor: "#fff",
