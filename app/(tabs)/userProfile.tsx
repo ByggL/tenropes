@@ -1,4 +1,4 @@
-import { UserMetadata } from "@/types/api_types";
+import { UserMetadata } from "@/types/types";
 import api from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";

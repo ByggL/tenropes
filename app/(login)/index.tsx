@@ -44,7 +44,7 @@ export default function LoginScreen() {
           if (now - timestamp < threeHoursInMs) {
             console.log("Valid session found, redirecting...");
             router.replace({
-              pathname: "/(tabs)/canalPage",
+              pathname: "/(tabs)/channelSelectionPage",
               params: { token: token }, // Transmitting the token
             });
             return;
@@ -80,7 +80,7 @@ export default function LoginScreen() {
       await AsyncStorage.setItem("currentUsername", username);
       setWrongIdentifiers(false);
       setLoading(false);
-      router.replace("/(tabs)/canalPage");
+      router.replace("/(tabs)/channelSelectionPage");
     } catch (error) {
       console.log(error);
       setWrongIdentifiers(true);

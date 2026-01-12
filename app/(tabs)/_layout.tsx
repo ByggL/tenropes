@@ -16,7 +16,7 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-
+  console.log("On stack tabs");
   return (
     <Tabs
       screenOptions={{
@@ -26,13 +26,6 @@ export default function TabLayout() {
         headerShown: useClientOnlyValue(false, true),
       }}
     >
-      <Tabs.Screen
-        name="channelPage"
-        options={{
-          title: "Connected",
-          tabBarIcon: ({ color }) => <TabBarIcon name="bell" color={color} />,
-        }}
-      />
       <Tabs.Screen
         name="createCanal"
         options={{

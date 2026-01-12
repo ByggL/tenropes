@@ -14,6 +14,7 @@ import {
 
 import { ChannelMetadata, MessageMetadata } from "@/types/types";
 import api from "@/utils/api";
+import { useLocalSearchParams } from "expo-router";
 
 // --- Props du Composant ---
 
@@ -24,14 +25,37 @@ interface ChatChannelProps {
 
 // --- Composant Principal ---
 
-const ChatChannel: React.FC<ChatChannelProps> = ({ channel, messages }) => {
+export default function ChatChannel() {
+  // 1. Get the strings from the URL
+  const { channel, messages } = useLocalSearchParams();
+
+  // 2. Parse them back into objects safely
+  const parsedChannel: ChannelMetadata = channel
+    ? JSON.parse(channel as string)
+    : null;
+
+  const parsedMessages: MessageMetadata[] = messages
+    ? JSON.parse(messages as string)
+    : [];
+
   const [inputText, setInputText] = useState("");
   const flatListRef = useRef<FlatList>(null);
-  const { theme } = channel;
+  const theme = parsedChannel.theme
+    ? parsedChannel.theme
+    : {
+        primary_color: "#E91E63",
+        primary_color_dark: "#C2185B",
+        accent_color: "#00BCD4",
+        text_color: "#212121",
+        accent_text_color: "#FFFFFF",
+      };
 
   const handleSend = () => {
     if (inputText.trim().length === 0) return;
-    api.sendMessage(channel.id, { type: "text", value: inputText.trim() });
+    api.sendMessage(parsedChannel.id, {
+      type: "text",
+      value: inputText.trim(),
+    });
     setInputText("");
   };
 
@@ -49,7 +73,7 @@ const ChatChannel: React.FC<ChatChannelProps> = ({ channel, messages }) => {
   }) => {
     // Détection basique pour savoir si on groupe les messages du même auteur
     const isSameAuthor =
-      index > 0 && messages[index - 1].author === item.author;
+      index > 0 && parsedMessages[index - 1].author === item.author;
 
     // Placeholder pour l'avatar (en prod, utiliser l'image utilisateur réelle)
     const avatarUrl = `https://pixelcorner.fr/cdn/shop/articles/le-nyan-cat-618805.webp?v=1710261022&width=2048`;
@@ -110,14 +134,14 @@ const ChatChannel: React.FC<ChatChannelProps> = ({ channel, messages }) => {
           #
         </Text>
         <Text style={[styles.channelName, { color: theme.text_color }]}>
-          {channel.name}
+          {parsedChannel.name}
         </Text>
       </View>
 
       {/* Liste des Messages */}
       <FlatList
         ref={flatListRef}
-        data={messages}
+        data={parsedMessages}
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderMessage}
         contentContainerStyle={styles.listContent}
@@ -150,7 +174,7 @@ const ChatChannel: React.FC<ChatChannelProps> = ({ channel, messages }) => {
                 backgroundColor: theme.primary_color_dark,
               },
             ]}
-            placeholder={`Envoyer un message dans #${channel.name}`}
+            placeholder={`Envoyer un message dans #${parsedChannel.name}`}
             placeholderTextColor="#72767d"
             value={inputText}
             onChangeText={setInputText}
@@ -167,7 +191,7 @@ const ChatChannel: React.FC<ChatChannelProps> = ({ channel, messages }) => {
       </KeyboardAvoidingView>
     </View>
   );
-};
+}
 
 // --- Styles ---
 
@@ -261,5 +285,3 @@ const styles = StyleSheet.create({
     padding: 8,
   },
 });
-
-export default ChatChannel;

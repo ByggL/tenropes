@@ -2,7 +2,7 @@ import ChannelCard from "@/components/channelCard";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
-import { ChannelMetadata } from "../../types/api_types";
+import { ChannelMetadata } from "../../types/types";
 import api from "../../utils/api";
 
 export default function ConnectionPage() {
@@ -32,13 +32,7 @@ export default function ConnectionPage() {
       <FlatList
         data={channels}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <ChannelCard
-            channelId={item.id}
-            channelImg={item.img}
-            channelName={item.name}
-          />
-        )}
+        renderItem={({ item }) => <ChannelCard channelMetadata={item} />}
         style={styles.list}
       />
     </View>
