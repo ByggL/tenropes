@@ -1,13 +1,17 @@
 import { UserMetadata } from "@/types/types";
 import api from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
-  KeyboardAvoidingView, // Import this
+  Image,
+  KeyboardAvoidingView,
+  Modal, // 1. Import Modal
   Platform,
-  Pressable, // Import this to check OS
+  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -16,9 +20,10 @@ import {
   View,
   useColorScheme,
 } from "react-native";
+
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
-export default function ConnectionPage() {
+export default function UserProfilePage() {
   const systemTheme = useColorScheme();
   const isDark = systemTheme === "dark";
 
@@ -31,39 +36,63 @@ export default function ConnectionPage() {
     inputBorder: isDark ? "#4A5568" : "#E2E8F0",
     primary: "#667EEA",
     onPrimary: "#FFFFFF",
+    overlay: isDark ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.5)",
   };
 
   const [displayName, setDisplayName] = useState("");
   const [status, setStatus] = useState("");
   const [userName, setUserName] = useState("");
-  const [img, setImg] = useState("Not implemented yet");
+  const [img, setImg] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 2. New state for the Dialog Modal
+  const [modalVisible, setModalVisible] = useState(false);
+  const [tempImg, setTempImg] = useState("");
 
   const animationValue = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const currentUsername = await AsyncStorage.getItem("currentUsername");
-        if (currentUsername) {
-          const data: any = await api.getUserData(currentUsername);
-          if (data && data[0]) {
-            setUserName(currentUsername);
-            setDisplayName(data[0].display_name);
-            setStatus(data[0].status);
-            Animated.spring(animationValue, {
-              toValue: 1,
-              speed: 0.5,
-              useNativeDriver: false,
-            }).start();
+  useFocusEffect(
+    useCallback(() => {
+      const loadUserData = async () => {
+        try {
+          const currentUsername = await AsyncStorage.getItem("currentUsername");
+          if (currentUsername) {
+            const data: any = await api.getUserData(currentUsername);
+
+            if (data && data[0]) {
+              setUserName(currentUsername);
+              setDisplayName(data[0].display_name || "");
+              setStatus(data[0].status || "");
+              setImg(data[0].img || "");
+
+              Animated.spring(animationValue, {
+                toValue: 1,
+                speed: 0.5,
+                useNativeDriver: false,
+              }).start();
+            }
           }
+        } catch (error) {
+          console.log("Error fetching data :", error);
         }
-      } catch (error) {
-        console.log("Error fetching data :", error);
-      }
-    };
-    loadUserData();
-  }, []);
+      };
+
+      loadUserData();
+      return () => {};
+    }, [])
+  );
+
+  // 3. Handle opening the dialog
+  const handleOpenImageDialog = () => {
+    setTempImg(img); // Pre-fill with current URL
+    setModalVisible(true);
+  };
+
+  // 4. Handle saving from the dialog
+  const handleSaveImageUri = () => {
+    setImg(tempImg);
+    setModalVisible(false);
+  };
 
   const handleValidate = async () => {
     setLoading(true);
@@ -75,34 +104,118 @@ export default function ConnectionPage() {
         img: img,
       };
       await api.postNewUserData(newUserData);
+      Alert.alert("Success", "Profile updated!");
     } catch (error) {
       console.log(`Error while modifying data: ${error}`);
+      Alert.alert("Error", "Failed to update profile.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    // 1. KeyboardAvoidingView must be the top-level wrapper with flex: 1
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20} // Tweak this if header interferes
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
       <ScrollView
         contentContainerStyle={[
           styles.scrollContainer,
           { backgroundColor: theme.background },
         ]}
-        keyboardShouldPersistTaps="handled" // Allows pressing button while keyboard is open
+        keyboardShouldPersistTaps="handled"
       >
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
+        {/* 5. The Custom Dialog Modal */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View
+            style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}
+          >
+            <View
+              style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
+            >
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Change Profile Picture
+              </Text>
+              <Text style={[styles.modalSubtitle, { color: theme.subText }]}>
+                Enter a public URL for your image.
+              </Text>
+
+              <TextInput
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: theme.inputBg,
+                    color: theme.text,
+                    borderColor: theme.inputBorder,
+                  },
+                ]}
+                placeholder="https://example.com/image.png"
+                placeholderTextColor={theme.subText}
+                value={tempImg}
+                onChangeText={setTempImg}
+                autoCapitalize="none"
+              />
+
+              <View style={styles.modalButtons}>
+                <Pressable
+                  style={[styles.modalButton, styles.buttonCancel]}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={{ color: theme.subText }}>Cancel</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.modalButton,
+                    { backgroundColor: theme.primary },
+                  ]}
+                  onPress={handleSaveImageUri}
+                >
+                  <Text style={{ color: theme.onPrimary, fontWeight: "bold" }}>
+                    Set Image
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <View style={styles.avatarContainer}>
-            <View style={[styles.avatar, { backgroundColor: theme.inputBg }]}>
-              <Text style={{ fontSize: 24, color: theme.subText }}>📷</Text>
-            </View>
+            {/* 6. Pressing avatar now opens the dialog */}
+            <Pressable
+              onPress={handleOpenImageDialog}
+              style={({ pressed }) => [
+                styles.avatar,
+                {
+                  backgroundColor: theme.inputBg,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              {img ? (
+                <Image
+                  source={{ uri: img }}
+                  style={{ width: "100%", height: "100%", borderRadius: 40 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={{ fontSize: 24, color: theme.subText }}>📷</Text>
+              )}
+
+              <View style={styles.editIconOverlay}>
+                <Text style={{ fontSize: 12, color: "#fff" }}>✎</Text>
+              </View>
+            </Pressable>
+
             <Text style={[styles.usernameText, { color: theme.text }]}>
               @{userName || "username"}
             </Text>
@@ -136,7 +249,7 @@ export default function ConnectionPage() {
                   transform: [{ scale: animationValue }],
                 },
               ]}
-              placeholder=""
+              placeholder="Your display name"
               value={displayName}
               onChangeText={setDisplayName}
               placeholderTextColor={theme.subText}
@@ -195,9 +308,8 @@ export default function ConnectionPage() {
 }
 
 const styles = StyleSheet.create({
-  // Changed from 'container' to 'scrollContainer'
   scrollContainer: {
-    flexGrow: 1, // Ensures content is centered if it's small, but scrollable if large
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
@@ -224,6 +336,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
+    position: "relative",
+  },
+  editIconOverlay: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#667EEA",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
   },
   usernameText: {
     fontSize: 16,
@@ -263,5 +389,55 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: "bold",
+  },
+  // --- New Modal Styles ---
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "80%",
+    padding: 20,
+    borderRadius: 16,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  modalInput: {
+    height: 45,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  modalButton: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  buttonCancel: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#ccc",
   },
 });

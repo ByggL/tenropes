@@ -27,8 +27,19 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
+        name="channelPage"
+        options={{
+          title: "Connected",
+          headerShown: false,
+          // This removes the button from the bottom navbar
+          href: null,
+          tabBarIcon: ({ color }) => <TabBarIcon name="bell" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="createCanal"
         options={{
+          headerShown: false,
           title: "Create",
           tabBarIcon: ({ color }) => <TabBarIcon name="plus" color={color} />,
         }}
@@ -37,6 +48,7 @@ export default function TabLayout() {
         name="channelSelectionPage"
         options={{
           title: "Select",
+          headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
         }}
       />
@@ -44,6 +56,7 @@ export default function TabLayout() {
         name="userProfile"
         options={{
           title: "User",
+          headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
       />
