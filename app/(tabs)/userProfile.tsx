@@ -1,3 +1,5 @@
+import { Text, View } from "@/components/Themed"; // Imports your auto-theming components
+import Colors from "@/constants/Colors";
 import { UserMetadata } from "@/types/types";
 import api from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -15,29 +17,14 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
   TextInput,
-  View,
   useColorScheme,
 } from "react-native";
-
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 export default function UserProfilePage() {
-  const systemTheme = useColorScheme();
-  const isDark = systemTheme === "dark";
-
-  const theme = {
-    background: isDark ? "#121212" : "#F4F6F8",
-    cardBg: isDark ? "#1E1E1E" : "#FFFFFF",
-    text: isDark ? "#E0E0E0" : "#2D3748",
-    subText: isDark ? "#A0AEC0" : "#718096",
-    inputBg: isDark ? "#2D2D2D" : "#EDF2F7",
-    inputBorder: isDark ? "#4A5568" : "#E2E8F0",
-    primary: "#667EEA",
-    onPrimary: "#FFFFFF",
-    overlay: isDark ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.5)",
-  };
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? "light"];
 
   const [displayName, setDisplayName] = useState("");
   const [status, setStatus] = useState("");
@@ -122,11 +109,11 @@ export default function UserProfilePage() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContainer,
-          { backgroundColor: theme.background },
+          { backgroundColor: theme.inputBg },
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <StatusBar barStyle={theme ? "light-content" : "dark-content"} />
 
         {/* 5. The Custom Dialog Modal */}
         <Modal

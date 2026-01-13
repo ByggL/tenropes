@@ -1,3 +1,4 @@
+import Colors from "@/constants/Colors"; // 2. Import Colors
 import { Theme } from "@/types/types";
 import React, { useState } from "react";
 import {
@@ -9,17 +10,19 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  // Text, // Removed standard imports to use Themed or manual styling
+  // TextInput,
   UIManager,
+  useColorScheme,
   View,
 } from "react-native";
+import { runOnJS } from "react-native-reanimated";
 import ColorPicker, {
   HueSlider,
   Panel1,
   PreviewText,
   Swatches,
 } from "reanimated-color-picker";
-// 1. Import runOnJS to handle thread switching
-import { runOnJS } from "react-native-reanimated";
 
 // Enable LayoutAnimation for Android
 if (
@@ -43,7 +46,7 @@ interface ChannelFormProps {
   loading?: boolean;
 }
 
-// Default Presets
+// Default Presets (These remain unchanged as they are data, not UI styling)
 const PRESETS = [
   {
     name: "Default Pink",
@@ -96,11 +99,15 @@ export default function ChannelForm({
 }: ChannelFormProps) {
   const [name, setName] = useState(initialData?.name || "");
   const [img, setImg] = useState(initialData?.img || "");
-  const [theme, setTheme] = useState<Theme>(
+  const [themeData, setThemeData] = useState<Theme>(
     initialData?.theme || PRESETS[0].theme
   );
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // --- Theme Hooks ---
+  const colorScheme = useColorScheme();
+  const appTheme = Colors[colorScheme ?? "light"];
 
   // --- Picker State ---
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -110,30 +117,28 @@ export default function ChannelForm({
   const [tempColor, setTempColor] = useState("#FFFFFF");
 
   const handlePresetSelect = (newTheme: Theme) => {
-    setTheme(newTheme);
+    setThemeData(newTheme);
   };
 
   const handleManualTextChange = (key: keyof Theme, value: string) => {
-    setTheme((prev) => ({ ...prev, [key]: value }));
+    setThemeData((prev) => ({ ...prev, [key]: value }));
   };
 
   const openPicker = (key: keyof Theme) => {
     setActiveColorKey(key);
-    setTempColor(theme[key]);
+    setTempColor(themeData[key]);
     setPickerVisible(true);
   };
 
-  // 2. This is the JS function that updates state
   const updateColorState = (color: { hex: string }) => {
     if (activeColorKey) {
-      setTheme((prev) => ({ ...prev, [activeColorKey]: color.hex }));
+      setThemeData((prev) => ({ ...prev, [activeColorKey]: color.hex }));
     }
   };
 
-  // 3. This is the wrapper "worklet" that calls runOnJS
   const onColorSelect = (color: { hex: string }) => {
-    "worklet"; // Mark this function as runnable on UI thread
-    runOnJS(updateColorState)(color); // Dispatch back to JS thread
+    "worklet";
+    runOnJS(updateColorState)(color);
   };
 
   const toggleAdvanced = () => {
@@ -142,10 +147,12 @@ export default function ChannelForm({
   };
 
   const handleSubmit = () => {
-    onSubmit({ name, img, theme });
-    setName("");
-    setImg("");
-    setTheme(PRESETS[0].theme);
+    onSubmit({ name, img, theme: themeData });
+    if (!initialData) {
+      setName("");
+      setImg("");
+      setThemeData(PRESETS[0].theme);
+    }
   };
 
   return (
@@ -153,16 +160,27 @@ export default function ChannelForm({
       {/* --- Visual Color Picker Modal --- */}
       <Modal visible={pickerVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={styles.pickerContainer}>
-            <Text style={styles.pickerTitle}>Select Color</Text>
+          <View
+            style={[
+              styles.pickerContainer,
+              { backgroundColor: appTheme.cardBg },
+            ]}
+          >
+            <Text style={[styles.pickerTitle, { color: appTheme.text }]}>
+              Select Color
+            </Text>
 
             <ColorPicker
               style={{ width: "100%", gap: 20 }}
               value={tempColor}
-              onComplete={onColorSelect} // Pass the worklet wrapper here
+              onComplete={onColorSelect}
             >
               <PreviewText
-                style={{ color: "#000", fontSize: 18, fontWeight: "bold" }}
+                style={{
+                  color: appTheme.text,
+                  fontSize: 18,
+                  fontWeight: "bold",
+                }}
               />
               <Panel1 />
               <HueSlider />
@@ -170,7 +188,10 @@ export default function ChannelForm({
             </ColorPicker>
 
             <Pressable
-              style={styles.closePickerButton}
+              style={[
+                styles.closePickerButton,
+                { backgroundColor: appTheme.primary },
+              ]}
               onPress={() => setPickerVisible(false)}
             >
               <Text style={styles.closePickerText}>Done</Text>
@@ -179,26 +200,47 @@ export default function ChannelForm({
         </View>
       </Modal>
 
-      <Text style={styles.label}>Channel Name</Text>
+      {/* --- Inputs --- */}
+      <Text style={[styles.label, { color: appTheme.subText }]}>
+        Channel Name
+      </Text>
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: appTheme.inputBg,
+            color: appTheme.text,
+            borderColor: appTheme.inputBorder,
+          },
+        ]}
         placeholder="# general"
-        placeholderTextColor="#A0AEC0"
+        placeholderTextColor={appTheme.subText} // Dynamic placeholder
         value={name}
         onChangeText={setName}
       />
 
-      <Text style={styles.label}>Channel Image URL</Text>
+      <Text style={[styles.label, { color: appTheme.subText }]}>
+        Channel Image URL
+      </Text>
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: appTheme.inputBg,
+            color: appTheme.text,
+            borderColor: appTheme.inputBorder,
+          },
+        ]}
         placeholder="https://example.com/logo.png"
-        placeholderTextColor="#A0AEC0"
+        placeholderTextColor={appTheme.subText}
         value={img}
         onChangeText={setImg}
         autoCapitalize="none"
       />
 
-      <Text style={styles.sectionTitle}>Channel Theme</Text>
+      <Text style={[styles.sectionTitle, { color: appTheme.text }]}>
+        Channel Theme
+      </Text>
 
       {/* Presets */}
       <View style={styles.presetsContainer}>
@@ -209,23 +251,32 @@ export default function ChannelForm({
             style={[
               styles.presetCircle,
               { backgroundColor: preset.theme.primary_color },
-              theme.primary_color === preset.theme.primary_color &&
-                styles.presetActive,
+              // Use explicit white/black border for selection ring depending on theme brightness
+              themeData.primary_color === preset.theme.primary_color && {
+                borderColor: appTheme.text,
+                borderWidth: 3,
+                transform: [{ scale: 1.1 }],
+              },
             ]}
           />
         ))}
       </View>
 
       <Pressable onPress={toggleAdvanced} style={styles.advancedToggle}>
-        <Text style={styles.advancedToggleText}>
+        <Text style={[styles.advancedToggleText, { color: appTheme.primary }]}>
           {showAdvanced ? "Hide Color Options ▲" : "Edit Specific Colors ▼"}
         </Text>
       </Pressable>
 
       {/* Advanced Inputs */}
       {showAdvanced && (
-        <View style={styles.advancedContainer}>
-          {Object.keys(theme).map((key) => {
+        <View
+          style={[
+            styles.advancedContainer,
+            { backgroundColor: appTheme.inputBg },
+          ]}
+        >
+          {Object.keys(themeData).map((key) => {
             const fieldKey = key as keyof Theme;
             return (
               <View key={fieldKey} style={styles.colorRow}>
@@ -233,19 +284,31 @@ export default function ChannelForm({
                   onPress={() => openPicker(fieldKey)}
                   style={[
                     styles.colorPreview,
-                    { backgroundColor: theme[fieldKey] },
+                    {
+                      backgroundColor: themeData[fieldKey],
+                      borderColor: appTheme.inputBorder,
+                    },
                   ]}
                 >
                   <Text style={styles.editIcon}>✎</Text>
                 </Pressable>
 
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.colorLabel}>
+                  <Text
+                    style={[styles.colorLabel, { color: appTheme.subText }]}
+                  >
                     {fieldKey.replace(/_/g, " ").toUpperCase()}
                   </Text>
                   <TextInput
-                    style={styles.colorInput}
-                    value={theme[fieldKey]}
+                    style={[
+                      styles.colorInput,
+                      {
+                        color: appTheme.text,
+                        borderColor: appTheme.inputBorder,
+                        backgroundColor: appTheme.cardBg,
+                      },
+                    ]}
+                    value={themeData[fieldKey]}
                     onChangeText={(text) =>
                       handleManualTextChange(fieldKey, text)
                     }
@@ -262,30 +325,45 @@ export default function ChannelForm({
       <View style={styles.buttonRow}>
         {onCancel && (
           <Pressable
-            style={[styles.button, styles.buttonCancel]}
+            style={[
+              styles.button,
+              styles.buttonCancel,
+              { borderColor: appTheme.inputBorder },
+            ]}
             onPress={onCancel}
             disabled={loading}
           >
-            <Text style={styles.buttonCancelText}>Cancel</Text>
+            <Text
+              style={[styles.buttonCancelText, { color: appTheme.subText }]}
+            >
+              Cancel
+            </Text>
           </Pressable>
         )}
 
         <Pressable
-          style={[styles.button, styles.buttonSubmit]}
+          style={[
+            styles.button,
+            styles.buttonSubmit,
+            { backgroundColor: appTheme.primary },
+          ]}
           onPress={handleSubmit}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color={appTheme.onPrimary} />
           ) : (
-            <Text style={styles.buttonSubmitText}>{submitLabel}</Text>
+            <Text
+              style={[styles.buttonSubmitText, { color: appTheme.onPrimary }]}
+            >
+              {submitLabel}
+            </Text>
           )}
         </Pressable>
       </View>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   formContainer: {
     width: "100%",

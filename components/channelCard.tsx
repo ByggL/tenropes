@@ -1,3 +1,4 @@
+import Colors from "@/constants/Colors"; // 3. Import Colors
 import { ChannelMetadata, ChannelUpdateMetadata } from "@/types/types";
 import api from "@/utils/api";
 import { FontAwesome } from "@expo/vector-icons";
@@ -9,8 +10,12 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  // 1. Remove standard Text/View imports to avoid conflict if you use Themed versions,
+  // or rename them. Here I stick to standard RN imports but apply theme styles manually
+  // to ensure I don't break your structure.
   Text,
   View,
+  useColorScheme, // 2. Import hook
 } from "react-native";
 import ChannelForm from "./channelCreaModifForm";
 
@@ -27,6 +32,10 @@ export default function ChannelCard({
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<"menu" | "edit">("menu");
   const [loading, setLoading] = useState(false);
+
+  // 4. Get Theme
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? "light"];
 
   const handlePress = () => {
     router.push({
@@ -57,7 +66,7 @@ export default function ChannelCard({
       const updateData: ChannelUpdateMetadata = {
         name: data.name,
         img: data.img,
-        theme: data.theme, // ✅ Update with the new theme from the form
+        theme: data.theme,
       };
 
       await api.updateChannel(channelMetadata.id, updateData);
@@ -95,15 +104,18 @@ export default function ChannelCard({
           style={styles.modalOverlay}
           onPress={() => setModalVisible(false)}
         >
-          {/* Stop propagation so clicking the form doesn't close modal */}
           <Pressable
-            style={styles.modalContent}
+            // 5. Apply Theme to Modal Content
+            style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
             onPress={(e) => e.stopPropagation()}
           >
             {modalMode === "menu" ? (
               <>
-                <Text style={styles.modalTitle}>Channel Options</Text>
-                <Text style={styles.modalSubtitle}>
+                {/* 6. Apply Theme Text Colors */}
+                <Text style={[styles.modalTitle, { color: theme.text }]}>
+                  Channel Options
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: theme.subText }]}>
                   What do you want to do?
                 </Text>
 
@@ -129,14 +141,15 @@ export default function ChannelCard({
                 </Pressable>
               </>
             ) : (
-              /* --- EDIT MODE --- */
               <>
-                <Text style={styles.modalTitle}>Edit Channel</Text>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>
+                  Edit Channel
+                </Text>
                 <ChannelForm
                   initialData={{
                     name: channelMetadata.name,
                     img: channelMetadata.img,
-                    theme: channelMetadata.theme, // 👈 THIS IS THE FIX
+                    theme: channelMetadata.theme,
                   }}
                   onSubmit={handleUpdateSubmit}
                   submitLabel="Save Changes"
@@ -154,7 +167,12 @@ export default function ChannelCard({
         onLongPress={handleLongPress}
         style={({ pressed }) => [
           styles.cardContainer,
-          pressed && styles.cardPressed,
+          // 7. Apply Theme to Card Background and Pressed State
+          {
+            backgroundColor: theme.cardBg,
+            borderColor: theme.inputBorder, // Subtle border in dark mode
+          },
+          pressed && { opacity: 0.7, backgroundColor: theme.inputBg }, // Replaces styles.cardPressed
         ]}
       >
         <Image
@@ -163,14 +181,20 @@ export default function ChannelCard({
           resizeMode="cover"
         />
         <View style={styles.textContainer}>
-          <Text style={styles.channelName} numberOfLines={1}>
+          <Text
+            style={[styles.channelName, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {channelMetadata.name}
           </Text>
-          <Text style={styles.lastMessage} numberOfLines={1}>
+          <Text
+            style={[styles.lastMessage, { color: theme.subText }]}
+            numberOfLines={1}
+          >
             Tap to view messages
           </Text>
         </View>
-        <FontAwesome name="chevron-right" size={14} color="#C7C7CC" />
+        <FontAwesome name="chevron-right" size={14} color={theme.subText} />
       </Pressable>
     </View>
   );
@@ -184,7 +208,7 @@ const styles = StyleSheet.create({
   cardContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    // backgroundColor: "#FFFFFF", // Removed, handled inline
     borderRadius: 16,
     padding: 12,
     shadowColor: "#000",
@@ -193,12 +217,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
     borderWidth: 1,
-    borderColor: "#F0F0F0",
+    // borderColor: "#F0F0F0", // Removed, handled inline
   },
-  cardPressed: {
-    backgroundColor: "#F5F5F5",
-    transform: [{ scale: 0.98 }],
-  },
+  // cardPressed removed, handled inline for dynamic colors
   cardImage: {
     width: 50,
     height: 50,
@@ -213,12 +234,12 @@ const styles = StyleSheet.create({
   channelName: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#1A4D8C",
+    // color: "#1A4D8C", // Removed, handled inline
     marginBottom: 4,
   },
   lastMessage: {
     fontSize: 13,
-    color: "#8E8E93",
+    // color: "#8E8E93", // Removed, handled inline
   },
   modalOverlay: {
     flex: 1,
@@ -228,7 +249,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "85%",
-    backgroundColor: "white",
+    // backgroundColor: "white", // Removed, handled inline
     borderRadius: 20,
     padding: 24,
     alignItems: "center",
@@ -242,12 +263,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 10,
-    color: "#1A4D8C",
+    // color: "#1A4D8C", // Removed, handled inline
   },
   modalSubtitle: {
     fontSize: 16,
     marginBottom: 20,
-    color: "#666",
+    // color: "#666", // Removed, handled inline
   },
   modalButton: {
     width: "100%",
@@ -257,7 +278,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   buttonModify: {
-    backgroundColor: "#E3F2FD",
+    backgroundColor: "#E3F2FD", // Kept specific status colors
   },
   textModify: {
     color: "#1E88E5",
@@ -265,7 +286,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   buttonDelete: {
-    backgroundColor: "#FFEBEE",
+    backgroundColor: "#FFEBEE", // Kept specific status colors
   },
   textDelete: {
     color: "#D32F2F",

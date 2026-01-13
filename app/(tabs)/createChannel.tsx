@@ -1,4 +1,6 @@
-import ChannelForm from "@/components/channelCreaModifForm"; // Ensure path is correct
+import ChannelForm from "@/components/channelCreaModifForm";
+import { Text } from "@/components/Themed"; // Use Themed components
+import Colors from "@/constants/Colors"; // Import Colors
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -7,7 +9,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
+  useColorScheme, // Import hook
 } from "react-native";
 import { NewChannelData, Theme } from "../../types/types";
 import api from "../../utils/api";
@@ -15,12 +17,15 @@ import api from "../../utils/api";
 export default function CreateChannelPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? "light"];
 
   const handleCreate = async (data: {
     name: string;
     img: string;
     theme: Theme;
   }) => {
+    // ... (Keep your existing logic exactly as is) ...
     if (!data.name.trim()) {
       Alert.alert("Error", "Please enter a channel name.");
       return;
@@ -34,7 +39,7 @@ export default function CreateChannelPage() {
         theme: data.theme,
       };
       console.log(data.theme);
-      await api.createNewChannel(newChannelData); //
+      await api.createNewChannel(newChannelData);
 
       Alert.alert("Success", "Channel created successfully!", [
         {
@@ -53,16 +58,28 @@ export default function CreateChannelPage() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.title}>Create New Channel</Text>
-        <Text style={styles.subtitle}>Start a new conversation topic.</Text>
+        <Text
+          style={[
+            styles.title,
+            { color: colorScheme === "dark" ? theme.text : "#1A4D8C" },
+          ]}
+        >
+          Create New Channel
+        </Text>
+        <Text style={[styles.subtitle, { color: theme.subText }]}>
+          Start a new conversation topic.
+        </Text>
 
+        {/* Pass the theme to the form so it can style its inputs */}
         <ChannelForm
           onSubmit={handleCreate}
           submitLabel="Create Channel"
           loading={loading}
+          // You might need to add a prop to ChannelForm to pass the current app theme
+          // or handle it inside ChannelForm using the hook as well.
         />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -72,7 +89,7 @@ export default function CreateChannelPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    // backgroundColor handled inline
   },
   scrollContainer: {
     flexGrow: 1,
@@ -82,14 +99,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#1A4D8C",
     textAlign: "center",
     marginBottom: 8,
+    // color handled inline
   },
   subtitle: {
     fontSize: 16,
-    color: "#718096",
     textAlign: "center",
     marginBottom: 32,
+    // color handled inline
   },
 });
