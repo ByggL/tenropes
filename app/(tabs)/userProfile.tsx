@@ -1,9 +1,10 @@
+import { DisconnectButton } from "@/components/disconnectButton";
 import { Text, View } from "@/components/Themed"; // Imports your auto-theming components
 import Colors from "@/constants/Colors";
 import { UserMetadata } from "@/types/types";
 import api from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -26,6 +27,8 @@ export default function UserProfilePage() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
 
+  const router = useRouter();
+  const [disconnecting, setDisconnecting] = useState(false); // New state for logout loading
   const [displayName, setDisplayName] = useState("");
   const [status, setStatus] = useState("");
   const [userName, setUserName] = useState("");
@@ -100,6 +103,21 @@ export default function UserProfilePage() {
     }
   };
 
+  const handleOnDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      // 1. Clear session data
+      await AsyncStorage.removeItem("currentUsername");
+      await AsyncStorage.removeItem("jwt_token");
+
+      // 2. Redirect to Login (replace prevents going back)
+      router.replace("/(login)");
+    } catch (error) {
+      console.log("Error disconnecting:", error);
+      Alert.alert("Error", "Could not disconnect. Please try again.");
+      setDisconnecting(false);
+    }
+  };
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -290,6 +308,7 @@ export default function UserProfilePage() {
           </Pressable>
         </View>
       </ScrollView>
+      <DisconnectButton onPress={handleOnDisconnect} />
     </KeyboardAvoidingView>
   );
 }

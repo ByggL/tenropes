@@ -1,3 +1,7 @@
+import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
+import api from "@/utils/api";
+import { Ionicons } from "@expo/vector-icons"; // 1. Import Icon
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"; // 2. Import useRouter
 import React, { useCallback, useRef, useState } from "react";
 import {
   FlatList,
@@ -12,16 +16,13 @@ import {
   View,
 } from "react-native";
 
-import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
-import api from "@/utils/api";
-import { useFocusEffect, useLocalSearchParams } from "expo-router"; // 1. Import useFocusEffect
-
 interface ChatChannelProps {
   channel: ChannelMetadata;
   messages: MessageMetadata[];
 }
 
 export default function ChatChannel() {
+  const router = useRouter(); // 3. Initialize router
   const channelParam = useLocalSearchParams().channel;
   const channel: ChannelMetadata = channelParam
     ? JSON.parse(channelParam as string)
@@ -32,21 +33,18 @@ export default function ChatChannel() {
   const [inputText, setInputText] = useState("");
   const flatListRef = useRef<FlatList>(null);
 
-  // 2. Use useFocusEffect instead of useEffect
   useFocusEffect(
     useCallback(() => {
       if (!channel) return;
 
       console.log("Refreshing channel " + channel.id);
 
-      // A. Fetch initial data
       api.getMessages(channel.id, 0).then((result) => {
         setMessages(result);
       });
 
       api.getUserData(channel.users).then((result) => setMembers(result));
 
-      // B. Setup WebSocket
       const socket = new WebSocket(
         `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`
       );
@@ -60,12 +58,11 @@ export default function ChatChannel() {
         setMessages((prev) => [...prev, newMessage]);
       };
 
-      // C. Cleanup function (runs when you leave the screen or blur)
       return () => {
         console.log("Closing socket for channel " + channel.id);
         socket.close();
       };
-    }, [channel?.id]) // Re-run if channel ID changes
+    }, [channel?.id])
   );
 
   const theme = channel?.theme
@@ -106,10 +103,9 @@ export default function ChatChannel() {
     const isSameAuthor =
       index > 0 && messages[index - 1].author === item.author;
 
+    // Use a default avatar if none exists
     const avatarUrl = `https://pixelcorner.fr/cdn/shop/articles/le-nyan-cat-618805.webp?v=1710261022&width=2048`;
-
     const author = getUserFromName(item.author);
-
     const senderAvatar = () => {
       return author?.img || avatarUrl;
     };
@@ -173,6 +169,22 @@ export default function ChatChannel() {
           },
         ]}
       >
+        {/* 4. Added Back Button */}
+        <TouchableOpacity
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              // Fallback: If no history, force navigation to the list
+              router.replace("/(tabs)/channelSelectionPage");
+            }
+          }}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Easier to press
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.accent_color} />
+        </TouchableOpacity>
+
         <Text style={[styles.channelHash, { color: theme.accent_color }]}>
           #
         </Text>
@@ -184,7 +196,6 @@ export default function ChatChannel() {
       <FlatList
         ref={flatListRef}
         data={messages}
-        // Force re-render when messages change
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderMessage}
         contentContainerStyle={styles.listContent}
@@ -248,6 +259,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     elevation: 2,
+  },
+  // 5. Added Back Button Style
+  backButton: {
+    marginRight: 15,
+    padding: 4,
   },
   channelHash: {
     fontSize: 24,

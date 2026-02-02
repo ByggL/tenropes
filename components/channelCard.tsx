@@ -30,7 +30,9 @@ export default function ChannelCard({
 }: ChannelCardProps) {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState<"menu" | "edit">("menu");
+  const [modalMode, setModalMode] = useState<"menu" | "edit" | "shareChannel">(
+    "menu",
+  );
   const [loading, setLoading] = useState(false);
 
   // 4. Get Theme
@@ -82,6 +84,8 @@ export default function ChannelCard({
     }
   };
 
+  const handleShare = async () => {};
+
   const handleDelete = async () => {
     try {
       await api.deleteChannel(channelMetadata.id);
@@ -105,13 +109,11 @@ export default function ChannelCard({
           onPress={() => setModalVisible(false)}
         >
           <Pressable
-            // 5. Apply Theme to Modal Content
             style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
             onPress={(e) => e.stopPropagation()}
           >
             {modalMode === "menu" ? (
               <>
-                {/* 6. Apply Theme Text Colors */}
                 <Text style={[styles.modalTitle, { color: theme.text }]}>
                   Channel Options
                 </Text>
@@ -131,6 +133,15 @@ export default function ChannelCard({
                   onPress={handleDelete}
                 >
                   <Text style={styles.textDelete}>Delete Channel</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.modalButton, styles.buttonShare]}
+                  onPress={handleShare}
+                >
+                  <Text style={styles.textShare}>
+                    Share channel through link
+                  </Text>
                 </Pressable>
 
                 <Pressable
@@ -290,6 +301,14 @@ const styles = StyleSheet.create({
   },
   textDelete: {
     color: "#D32F2F",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  buttonShare: {
+    backgroundColor: "#8af7cd", // Kept specific status colors
+  },
+  textShare: {
+    color: "#1c9c22",
     fontWeight: "bold",
     fontSize: 16,
   },

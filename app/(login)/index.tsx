@@ -1,3 +1,4 @@
+// @ts-ignore
 import logo from "@/assets/images/tenropes_proposition.png";
 import api from "@/utils/api";
 import { getJwt } from "@/utils/jwt";
@@ -170,6 +171,7 @@ const styles = StyleSheet.create({
   image: {
     width: 250,
     height: 150,
+    alignSelf: "center",
     justifyContent: "center",
     borderRadius: 10,
     borderWidth: 2,
