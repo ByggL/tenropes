@@ -67,3 +67,8 @@ export type NewMessageData = {
   type: string;
   value: string;
 };
+
+export type NotificationData = {
+  title: string;
+  body: string;
+};

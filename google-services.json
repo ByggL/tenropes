@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "714384008329",
+    "project_id": "tenropes-8e94f",
+    "storage_bucket": "tenropes-8e94f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:714384008329:android:cd519ef62cc16b1fcad258",
+        "android_client_info": {
+          "package_name": "com.eliotdevynovlole.tenropes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2A0w806sFnq4OcxmGV9hVI1EeyZwJnVM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

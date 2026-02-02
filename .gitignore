@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+
+#FCM keys
+tenropes-8e94f-firebase-adminsdk-fbsvc-86c74456df.json

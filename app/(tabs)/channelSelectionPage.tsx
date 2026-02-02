@@ -1,6 +1,7 @@
 import ChannelCard from "@/components/channelCard";
 import { Text, View } from "@/components/Themed"; // 1. Use Themed components
 import Colors from "@/constants/Colors"; // 2. Import Colors
+import { triggerNotification } from "@/utils/notifications";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -8,9 +9,9 @@ import {
   FlatList,
   SafeAreaView,
   StyleSheet,
-  useColorScheme, // 3. Import hook
+  useColorScheme,
 } from "react-native";
-import { ChannelMetadata } from "../../types/types";
+import { ChannelMetadata, NotificationData } from "../../types/types";
 import api from "../../utils/api";
 
 export default function ChannelSelectionPage() {
@@ -32,11 +33,16 @@ export default function ChannelSelectionPage() {
     }
   };
 
+  const handleNotif = async () => {
+    const notifdata = { body: "Hello", title: "Haha" } as NotificationData;
+    await triggerNotification(notifdata);
+  };
+
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
       fetchChannels();
-    }, [])
+    }, []),
   );
 
   return (
@@ -55,6 +61,9 @@ export default function ChannelSelectionPage() {
         <Text style={[styles.headerSubtitle, { color: theme.subText }]}>
           Select a channel to start messenging !
         </Text>
+        {/* <Pressable onPress={handleNotif}>
+          <Text>Send Notif ?? </Text>
+        </Pressable> */}
       </View>
 
       {loading ? (

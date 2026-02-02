@@ -2,9 +2,16 @@
 import logo from "@/assets/images/tenropes_proposition.png";
 import api from "@/utils/api";
 import { getJwt } from "@/utils/jwt";
+import {
+  getNotificationsPermission,
+  setupNotifChannel,
+} from "@/utils/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
+
 import {
   ActivityIndicator,
   Alert,
@@ -30,35 +37,58 @@ export default function LoginScreen() {
   // State to handle initial token check
   const [isCheckingToken, setIsCheckingToken] = useState(true);
 
-  useEffect(() => {
-    const checkToken = async () => {
-      try {
-        // Fetch the stored object
-        const data: any = await getJwt();
-        const { token, timestamp } = data;
-        // console.log("oupsi");
-        if (token && timestamp) {
-          const now = Date.now();
-          const threeHoursInMs = 3 * 60 * 60 * 1000;
+  const pullAndPostToken = async () => {
+    const projectId =
+      Constants?.expoConfig?.extra?.eas?.projectId ??
+      Constants?.easConfig?.projectId;
+    console.log(projectId);
+    if (!projectId) {
+      console.error("Problem with project id");
+    }
+    try {
+      const pushTokenString = (
+        await Notifications.getExpoPushTokenAsync({ projectId })
+      ).data;
+      console.log("Hello, your push token :");
+      console.log(pushTokenString);
+      await api.postPushToken(pushTokenString);
+    } catch (e) {
+      throw new Error("Error while fetching and pushing expo push token ");
+    }
+  };
 
-          // Check if token is less than 3 hours old
-          if (now - timestamp < threeHoursInMs) {
-            console.log("Valid session found, redirecting...");
-            router.replace({
-              pathname: "/(tabs)/channelSelectionPage",
-              params: { token: token }, // Transmitting the token
-            });
-            return;
-          }
+  const checkToken = async () => {
+    try {
+      // Fetch the stored object
+      const data: any = await getJwt();
+      const { token, timestamp } = data;
+      // console.log("oupsi");
+      if (token && timestamp) {
+        const now = Date.now();
+        const threeHoursInMs = 3 * 60 * 60 * 1000;
+
+        // Check if token is less than 3 hours old
+        if (now - timestamp < threeHoursInMs) {
+          pullAndPostToken();
+          console.log("Valid session found, redirecting...");
+          router.replace({
+            pathname: "/(tabs)/channelSelectionPage",
+            params: { token: token }, // Transmitting the token
+          });
+          return;
         }
-      } catch (error) {
-        console.log("Error checking token:", error);
-      } finally {
-        // Stop checking and show login form if no valid token found
-        setIsCheckingToken(false);
       }
-    };
+    } catch (error) {
+      console.log("Error checking token:", error);
+    } finally {
+      // Stop checking and show login form if no valid token found
+      setIsCheckingToken(false);
+    }
+  };
 
+  useEffect(() => {
+    setupNotifChannel();
+    getNotificationsPermission();
     checkToken();
   }, []);
 
@@ -78,6 +108,7 @@ export default function LoginScreen() {
       console.log(result);
       console.log("Login successful. Simulating navigation to main content.");
       console.log(username);
+      pullAndPostToken();
       await AsyncStorage.setItem("currentUsername", username);
       setWrongIdentifiers(false);
       setLoading(false);

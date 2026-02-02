@@ -124,6 +124,26 @@ class API {
     }
   }
 
+  public async postPushToken(pushTokenString: String) {
+    try {
+      const response = await this.client.post(
+        "/protected/user/expo_notification_token",
+        pushTokenString,
+      );
+      console.log("Pushed expo token");
+    } catch (error) {
+      console.log(error);
+      if (axios.isAxiosError(error) && error.response?.status === 400) {
+        throw new Error("Token is too long. Maximum size: 1000 characters.");
+      } else if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Unauthorized");
+      } else if (axios.isAxiosError(error) && error.response?.status === 500) {
+        throw new Error("Internal server error");
+      }
+      throw new Error(`Can't push expo token to server : ${error}`);
+    }
+  }
+
   ///////////////////////////////////////
 
   //////////////////////////////////////////
