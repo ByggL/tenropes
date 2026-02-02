@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -27,10 +28,14 @@ export default function ChatChannel() {
   const channelParam = useLocalSearchParams().channel;
   const channel: ChannelMetadata = channelParam ? JSON.parse(channelParam as string) : null;
 
-  const [messages, setMessages] = useState<MessageMetadata[]>([]);
   const [members, setMembers] = useState<UserMetadata[]>([]);
   const [inputText, setInputText] = useState("");
   const flatListRef = useRef<FlatList>(null);
+
+  const [messages, setMessages] = useState<MessageMetadata[]>([]);
+  const [isFetchingHistory, setIsFetchingHistory] = useState(false);
+  const [batchOffset, setBatchOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
   // 2. Use useFocusEffect instead of useEffect
   useFocusEffect(
@@ -39,9 +44,13 @@ export default function ChatChannel() {
 
       console.log("Refreshing channel " + channel.id);
 
-      // A. Fetch initial data
-      api.getMessages(channel.id, 0).then((result) => {
-        setMessages(result);
+      setBatchOffset(0);
+      setHasMore(true);
+      setIsFetchingHistory(false);
+
+      api.getMessages(channel.id, 0).then((initialMessages) => {
+        // inverted because we want newest message at the start of the array
+        setMessages(initialMessages.reverse());
       });
 
       api.getUserData(channel.users).then((result) => setMembers(result));
@@ -55,7 +64,8 @@ export default function ChatChannel() {
 
       socket.onmessage = (event) => {
         const newMessage = JSON.parse(event.data);
-        setMessages((prev) => [...prev, newMessage]);
+
+        setMessages((prev) => [newMessage, ...prev]);
       };
 
       // C. Cleanup function (runs when you leave the screen or blur)
@@ -66,11 +76,32 @@ export default function ChatChannel() {
     }, [channel?.id]), // Re-run if channel ID changes
   );
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      flatListRef.current?.scrollToEnd({ animated: true });
+  const loadOlderMessages = async () => {
+    if (isFetchingHistory || !hasMore) return;
+
+    setIsFetchingHistory(true);
+
+    try {
+      const nextBatch = batchOffset + 40;
+
+      const olderMessages = await api.getMessages(channel.id, nextBatch);
+
+      if (olderMessages.length === 0) {
+        setHasMore(false);
+      } else {
+        // since API returns [oldest ... newer], we need them reversed [newer ... oldest] to append to the list
+        const reversedHistory = olderMessages.reverse();
+
+        setMessages((prev) => [...prev, ...reversedHistory]);
+
+        setBatchOffset(nextBatch);
+      }
+    } catch (error) {
+      console.error("Failed to load history:", error);
+    } finally {
+      setIsFetchingHistory(false);
     }
-  }, [messages]);
+  };
 
   const theme = channel?.theme
     ? channel.theme
@@ -108,7 +139,8 @@ export default function ChatChannel() {
   };
 
   const renderMessage = ({ item, index }: { item: MessageMetadata; index: number }) => {
-    const isSameAuthor = index > 0 && messages[index - 1].author === item.author;
+    const olderMessage = messages[index + 1];
+    const isSameAuthor = olderMessage && olderMessage.author === item.author;
 
     const avatarUrl = `https://pixelcorner.fr/cdn/shop/articles/le-nyan-cat-618805.webp?v=1710261022&width=2048`;
 
@@ -159,10 +191,23 @@ export default function ChatChannel() {
         ]}
       >
         <Image source={{ uri: channel.img }} style={styles.avatar} />
-        <Text style={[styles.channelName, { color: theme.text_color }]}>{channel?.name}</Text>
+        <Text style={[styles.channelName, { color: theme.text_color, paddingLeft: 8 }]}>{channel?.name}</Text>
       </View>
 
       <FlatList
+        data={messages}
+        keyExtractor={(item, index) => index.toString()}
+        inverted={true}
+        onEndReached={loadOlderMessages}
+        onEndReachedThreshold={0.2} // triggers when user is 20% away from top
+        ListFooterComponent={
+          isFetchingHistory ? <ActivityIndicator size="small" color="#999" style={{ marginVertical: 20 }} /> : null
+        }
+        renderItem={renderMessage}
+        contentContainerStyle={{ paddingVertical: 10 }}
+      />
+
+      {/* <FlatList
         ref={flatListRef}
         data={messages}
         // Force re-render when messages change
@@ -178,7 +223,7 @@ export default function ChatChannel() {
         }}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
         removeClippedSubviews={true}
-      />
+      /> */}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -239,6 +284,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: 16,
+    flexGrow: 1,
+    justifyContent: "flex-end",
   },
   messageContainer: {
     flexDirection: "row",
