@@ -2,8 +2,9 @@ import Colors from "@/constants/Colors"; // 3. Import Colors
 import { ChannelMetadata, ChannelUpdateMetadata } from "@/types/types";
 import api from "@/utils/api";
 import { FontAwesome } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -24,20 +25,36 @@ interface ChannelCardProps {
   onUpdate: () => void;
 }
 
-export default function ChannelCard({
-  channelMetadata,
-  onUpdate,
-}: ChannelCardProps) {
+export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardProps) {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState<"menu" | "edit" | "shareChannel">(
-    "menu",
-  );
+  const [modalMode, setModalMode] = useState<"menu" | "edit" | "shareChannel">("menu");
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // 4. Get Theme
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
+
+  const creator = channelMetadata.creator;
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        console.log("fetching user");
+        const currentUsername = await AsyncStorage.getItem("currentUsername");
+        if (currentUsername && currentUsername == creator) {
+          setIsAdmin(true);
+        }
+      } catch (error) {
+        console.log("Error fetching data :", error);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  console.log(isAdmin);
 
   const handlePress = () => {
     router.push({
@@ -50,19 +67,21 @@ export default function ChannelCard({
   };
 
   const handleLongPress = () => {
-    setModalMode("menu");
-    setModalVisible(true);
+    if (isAdmin) {
+      setModalMode("menu");
+      setModalVisible(true);
+    } else {
+      Alert.alert("Authorization Error", "You are not an admin of this channel.", [
+        { text: "OK", onPress: () => console.log("OK Pressed") },
+      ]);
+    }
   };
 
   const handleModifyPress = () => {
     setModalMode("edit");
   };
 
-  const handleUpdateSubmit = async (data: {
-    name: string;
-    img: string;
-    theme: any;
-  }) => {
+  const handleUpdateSubmit = async (data: { name: string; img: string; theme: any }) => {
     setLoading(true);
     try {
       const updateData: ChannelUpdateMetadata = {
@@ -104,58 +123,39 @@ export default function ChannelCard({
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setModalVisible(false)}
-        >
+        <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
           <Pressable
             style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
             onPress={(e) => e.stopPropagation()}
           >
             {modalMode === "menu" ? (
               <>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>
-                  Channel Options
-                </Text>
-                <Text style={[styles.modalSubtitle, { color: theme.subText }]}>
-                  What do you want to do?
-                </Text>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Channel Options</Text>
+                <Text style={[styles.modalSubtitle, { color: theme.subText }]}>What do you want to do?</Text>
 
                 <Pressable
                   style={[styles.modalButton, styles.buttonModify]}
                   onPress={handleModifyPress}
+                  disabled={!isAdmin}
                 >
                   <Text style={styles.textModify}>Modify Channel</Text>
                 </Pressable>
 
-                <Pressable
-                  style={[styles.modalButton, styles.buttonDelete]}
-                  onPress={handleDelete}
-                >
+                <Pressable style={[styles.modalButton, styles.buttonDelete]} onPress={handleDelete} disabled={!isAdmin}>
                   <Text style={styles.textDelete}>Delete Channel</Text>
                 </Pressable>
 
-                <Pressable
-                  style={[styles.modalButton, styles.buttonShare]}
-                  onPress={handleShare}
-                >
-                  <Text style={styles.textShare}>
-                    Share channel through link
-                  </Text>
+                <Pressable style={[styles.modalButton, styles.buttonShare]} onPress={handleShare}>
+                  <Text style={styles.textShare}>Share channel through link</Text>
                 </Pressable>
 
-                <Pressable
-                  style={[styles.modalButton, styles.buttonCancel]}
-                  onPress={() => setModalVisible(false)}
-                >
+                <Pressable style={[styles.modalButton, styles.buttonCancel]} onPress={() => setModalVisible(false)}>
                   <Text style={styles.textCancel}>Cancel</Text>
                 </Pressable>
               </>
             ) : (
               <>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>
-                  Edit Channel
-                </Text>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Channel</Text>
                 <ChannelForm
                   initialData={{
                     name: channelMetadata.name,
@@ -186,22 +186,12 @@ export default function ChannelCard({
           pressed && { opacity: 0.7, backgroundColor: theme.inputBg }, // Replaces styles.cardPressed
         ]}
       >
-        <Image
-          source={{ uri: channelMetadata.img }}
-          style={styles.cardImage}
-          resizeMode="cover"
-        />
+        <Image source={{ uri: channelMetadata.img }} style={styles.cardImage} resizeMode="cover" />
         <View style={styles.textContainer}>
-          <Text
-            style={[styles.channelName, { color: theme.text }]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.channelName, { color: theme.text }]} numberOfLines={1}>
             {channelMetadata.name}
           </Text>
-          <Text
-            style={[styles.lastMessage, { color: theme.subText }]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.lastMessage, { color: theme.subText }]} numberOfLines={1}>
             Tap to view messages
           </Text>
         </View>
@@ -287,6 +277,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 10,
+  },
+  modalButtonDisabled: {
+    width: "100%",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 10,
+    backgroundColor: "grey",
+    color: "gray",
   },
   buttonModify: {
     backgroundColor: "#E3F2FD", // Kept specific status colors

@@ -1,10 +1,12 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
   Platform,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -17,6 +19,7 @@ import ImageAttachment from "@/components/ImageAttachment";
 import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
 import api from "@/utils/api";
 import { formatImgUrl, isImgUrl, optimizeThemeForReadability } from "@/utils/utils";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"; // 1. Import useFocusEffect
 
 interface ChatChannelProps {
@@ -25,7 +28,7 @@ interface ChatChannelProps {
 }
 
 export default function ChatChannel() {
-  const router = useRouter(); // 3. Initialize router
+  const router = useRouter();
   const channelParam = useLocalSearchParams().channel;
   const channel: ChannelMetadata = channelParam ? JSON.parse(channelParam as string) : null;
 
@@ -37,8 +40,10 @@ export default function ChatChannel() {
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const [batchOffset, setBatchOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // 2. Use useFocusEffect instead of useEffect
+  const [isSharing, setIsSharing] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
       if (!channel) return;
@@ -74,6 +79,52 @@ export default function ChatChannel() {
       };
     }, [channel?.id]), // Re-run if channel ID changes
   );
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        console.log("fetching user");
+        const currentUsername = await AsyncStorage.getItem("currentUsername");
+        if (currentUsername && currentUsername == channel.creator) {
+          setIsAdmin(true);
+        }
+      } catch (error) {
+        console.log("Error fetching data :", error);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  const handleShareInvite = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+
+    try {
+      const link = await api.createInvite(channel.id);
+
+      const result = await Share.share({
+        message: `Join me in #${channel.name} on Tenropes! Here is your invite link: ${link}`,
+        url: link,
+        title: `Invite to ${channel.name}`,
+      });
+
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          console.log("Shared via", result.activityType);
+        } else {
+          console.log("Shared successfully");
+        }
+      } else if (result.action === Share.dismissedAction) {
+        console.log("Share dismissed");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Could not share invite link.");
+      console.error(error);
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   const loadOlderMessages = async () => {
     if (isFetchingHistory || !hasMore) return;
@@ -190,6 +241,18 @@ export default function ChatChannel() {
       >
         <Image source={{ uri: channel.img }} style={styles.avatar} />
         <Text style={[styles.channelName, { color: theme.text_color, paddingLeft: 8 }]}>{channel?.name}</Text>
+
+        {isAdmin ? (
+          <TouchableOpacity onPress={handleShareInvite} style={styles.headerAddButton} disabled={isSharing}>
+            {isSharing ? (
+              <ActivityIndicator size="small" color={theme.accent_color} />
+            ) : (
+              <Text style={{ color: theme.accent_color, fontSize: 24, fontWeight: "bold" }}>+</Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          ""
+        )}
       </View>
 
       <FlatList
@@ -207,7 +270,7 @@ export default function ChatChannel() {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 60}
       >
         <View style={[styles.inputContainer, { backgroundColor: theme.primary_color }]}>
           <TouchableOpacity style={styles.attachButton}>
@@ -342,5 +405,9 @@ const styles = StyleSheet.create({
   sendButton: {
     marginLeft: 10,
     padding: 8,
+  },
+  headerAddButton: {
+    marginLeft: "auto", // Pushes button to the right
+    padding: 10,
   },
 });
