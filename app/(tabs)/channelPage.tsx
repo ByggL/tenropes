@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -12,8 +12,10 @@ import {
   View,
 } from "react-native";
 
+import ImageAttachment from "@/components/ImageAttachment";
 import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
 import api from "@/utils/api";
+import { isImgUrl } from "@/utils/utils";
 import { useFocusEffect, useLocalSearchParams } from "expo-router"; // 1. Import useFocusEffect
 
 interface ChatChannelProps {
@@ -23,9 +25,7 @@ interface ChatChannelProps {
 
 export default function ChatChannel() {
   const channelParam = useLocalSearchParams().channel;
-  const channel: ChannelMetadata = channelParam
-    ? JSON.parse(channelParam as string)
-    : null;
+  const channel: ChannelMetadata = channelParam ? JSON.parse(channelParam as string) : null;
 
   const [messages, setMessages] = useState<MessageMetadata[]>([]);
   const [members, setMembers] = useState<UserMetadata[]>([]);
@@ -47,9 +47,7 @@ export default function ChatChannel() {
       api.getUserData(channel.users).then((result) => setMembers(result));
 
       // B. Setup WebSocket
-      const socket = new WebSocket(
-        `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`
-      );
+      const socket = new WebSocket(`https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`);
 
       socket.onopen = () => {
         console.log("Connected!");
@@ -65,8 +63,14 @@ export default function ChatChannel() {
         console.log("Closing socket for channel " + channel.id);
         socket.close();
       };
-    }, [channel?.id]) // Re-run if channel ID changes
+    }, [channel?.id]), // Re-run if channel ID changes
   );
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
   const theme = channel?.theme
     ? channel.theme
@@ -79,11 +83,18 @@ export default function ChatChannel() {
       };
 
   const handleSend = () => {
-    if (inputText.trim().length === 0) return;
+    const content = inputText.trim();
+    if (content.length === 0) return;
+
+    const isImageLink = isImgUrl(content);
+
+    console.log(isImageLink);
+
     api.sendMessage(channel.id, {
-      type: "Text",
-      value: inputText.trim(),
+      type: isImageLink ? "Image" : "Text",
+      value: content,
     });
+
     setInputText("");
   };
 
@@ -96,15 +107,8 @@ export default function ChatChannel() {
     return members.find((member) => member.username == username);
   };
 
-  const renderMessage = ({
-    item,
-    index,
-  }: {
-    item: MessageMetadata;
-    index: number;
-  }) => {
-    const isSameAuthor =
-      index > 0 && messages[index - 1].author === item.author;
+  const renderMessage = ({ item, index }: { item: MessageMetadata; index: number }) => {
+    const isSameAuthor = index > 0 && messages[index - 1].author === item.author;
 
     const avatarUrl = `https://pixelcorner.fr/cdn/shop/articles/le-nyan-cat-618805.webp?v=1710261022&width=2048`;
 
@@ -115,12 +119,7 @@ export default function ChatChannel() {
     };
 
     return (
-      <View
-        style={[
-          styles.messageContainer,
-          isSameAuthor ? styles.messageContainerCompact : null,
-        ]}
-      >
+      <View style={[styles.messageContainer, isSameAuthor ? styles.messageContainerCompact : null]}>
         {!isSameAuthor ? (
           <Image source={{ uri: senderAvatar() }} style={styles.avatar} />
         ) : (
@@ -130,25 +129,16 @@ export default function ChatChannel() {
         <View style={styles.messageContent}>
           {!isSameAuthor && (
             <View style={styles.headerContent}>
-              <Text style={[styles.authorName, { color: theme.text_color }]}>
-                {item.author}
-              </Text>
+              <Text style={[styles.authorName, { color: theme.text_color }]}>{item.author}</Text>
               <Text style={styles.timestamp}>{formatTime(item.timestamp)}</Text>
             </View>
           )}
 
           {item.content.type == "Text" ? (
-            <Text
-              style={[styles.messageText, { color: theme.accent_text_color }]}
-            >
-              {item.content.value}
-            </Text>
+            <Text style={[styles.messageText, { color: theme.accent_text_color }]}>{item.content.value}</Text>
           ) : (
-            <Image
-              source={{ uri: item.content.value }}
-              style={styles.imageAttachment}
-              resizeMode="cover"
-            />
+            // <Image source={{ uri: item.content.value }} style={styles.imageAttachment} resizeMode="cover" />
+            <ImageAttachment uri={item.content.value} baseStyle={styles.imageAttachment} />
           )}
         </View>
       </View>
@@ -156,13 +146,8 @@ export default function ChatChannel() {
   };
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: theme.primary_color_dark }]}
-    >
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={theme.primary_color_dark}
-      />
+    <View style={[styles.container, { backgroundColor: theme.primary_color_dark }]}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.primary_color_dark} />
 
       <View
         style={[
@@ -173,12 +158,8 @@ export default function ChatChannel() {
           },
         ]}
       >
-        <Text style={[styles.channelHash, { color: theme.accent_color }]}>
-          #
-        </Text>
-        <Text style={[styles.channelName, { color: theme.text_color }]}>
-          {channel?.name}
-        </Text>
+        <Image source={{ uri: channel.img }} style={styles.avatar} />
+        <Text style={[styles.channelName, { color: theme.text_color }]}>{channel?.name}</Text>
       </View>
 
       <FlatList
@@ -188,22 +169,22 @@ export default function ChatChannel() {
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderMessage}
         contentContainerStyle={styles.listContent}
-        onContentSizeChange={() =>
-          flatListRef.current?.scrollToEnd({ animated: true })
-        }
+        onContentSizeChange={() => {
+          if (messages.length > 0) {
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }
+        }}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        removeClippedSubviews={true}
       />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
       >
-        <View
-          style={[
-            styles.inputContainer,
-            { backgroundColor: theme.primary_color },
-          ]}
-        >
+        <View style={[styles.inputContainer, { backgroundColor: theme.primary_color }]}>
           <TouchableOpacity style={styles.attachButton}>
             <Text style={{ color: theme.accent_color, fontSize: 20 }}>+</Text>
           </TouchableOpacity>
@@ -224,9 +205,7 @@ export default function ChatChannel() {
           />
 
           <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
-            <Text style={{ color: theme.accent_color, fontWeight: "bold" }}>
-              →
-            </Text>
+            <Text style={{ color: theme.accent_color, fontWeight: "bold" }}>→</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -297,12 +276,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   imageAttachment: {
-    width: 280,
-    height: 180,
+    // width: 280,
+    // height: 180,
     borderRadius: 8,
     marginTop: 6,
     backgroundColor: "#202225",
     overflow: "hidden",
+    maxWidth: "100%",
   },
   messageText: {
     fontSize: 15,
