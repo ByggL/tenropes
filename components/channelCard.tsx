@@ -84,7 +84,15 @@ export default function ChannelCard({
     }
   };
 
-  const handleShare = async () => {};
+  const handleShare = async () => {
+    try {
+      await api.createInvite(channelMetadata.id);
+      setModalMode("shareChannel");
+    } catch (error) {
+      console.error("Invite creation failed", error);
+      Alert.alert("Error", "Failedd to create invite link");
+    }
+  };
 
   const handleDelete = async () => {
     try {
@@ -151,7 +159,7 @@ export default function ChannelCard({
                   <Text style={styles.textCancel}>Cancel</Text>
                 </Pressable>
               </>
-            ) : (
+            ) : modalMode === "edit" ? (
               <>
                 <Text style={[styles.modalTitle, { color: theme.text }]}>
                   Edit Channel
@@ -167,6 +175,13 @@ export default function ChannelCard({
                   onCancel={() => setModalMode("menu")}
                   loading={loading}
                 />
+              </>
+            ) : (
+              <>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>
+                  Share channel
+                </Text>
+                <Text>Hello it's me the invite link</Text>
               </>
             )}
           </Pressable>
