@@ -21,6 +21,7 @@ import api from "@/utils/api";
 import { formatImgUrl, isImgUrl, optimizeThemeForReadability } from "@/utils/utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"; // 1. Import useFocusEffect
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ChatChannelProps {
   channel: ChannelMetadata;
@@ -29,6 +30,7 @@ interface ChatChannelProps {
 
 export default function ChatChannel() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const channelParam = useLocalSearchParams().channel;
   const channel: ChannelMetadata = channelParam ? JSON.parse(channelParam as string) : null;
 
@@ -227,51 +229,52 @@ export default function ChatChannel() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.primary_color_dark }]}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.primary_color_dark} />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 60}
+      style={{ paddingTop: insets.top }}
+    >
+      <View style={[styles.container, { backgroundColor: theme.primary_color_dark }]}>
+        <StatusBar barStyle="light-content" backgroundColor={theme.primary_color_dark} />
 
-      <View
-        style={[
-          styles.header,
-          {
-            borderBottomColor: theme.primary_color,
-            backgroundColor: theme.primary_color_dark,
-          },
-        ]}
-      >
-        <Image source={{ uri: channel.img }} style={styles.avatar} />
-        <Text style={[styles.channelName, { color: theme.text_color, paddingLeft: 8 }]}>{channel?.name}</Text>
+        <View
+          style={[
+            styles.header,
+            {
+              borderBottomColor: theme.primary_color,
+              backgroundColor: theme.primary_color_dark,
+            },
+          ]}
+        >
+          <Image source={{ uri: channel.img }} style={styles.avatar} />
+          <Text style={[styles.channelName, { color: theme.text_color, paddingLeft: 8 }]}>{channel?.name}</Text>
 
-        {isAdmin ? (
-          <TouchableOpacity onPress={handleShareInvite} style={styles.headerAddButton} disabled={isSharing}>
-            {isSharing ? (
-              <ActivityIndicator size="small" color={theme.accent_color} />
-            ) : (
-              <Text style={{ color: theme.accent_color, fontSize: 24, fontWeight: "bold" }}>+</Text>
-            )}
-          </TouchableOpacity>
-        ) : (
-          ""
-        )}
-      </View>
+          {isAdmin ? (
+            <TouchableOpacity onPress={handleShareInvite} style={styles.headerAddButton} disabled={isSharing}>
+              {isSharing ? (
+                <ActivityIndicator size="small" color={theme.accent_color} />
+              ) : (
+                <Text style={{ color: theme.accent_color, fontSize: 24, fontWeight: "bold" }}>+</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            ""
+          )}
+        </View>
 
-      <FlatList
-        data={messages}
-        keyExtractor={(item, index) => index.toString()}
-        inverted={true}
-        onEndReached={loadOlderMessages}
-        onEndReachedThreshold={0.2} // triggers when user is 20% away from top
-        ListFooterComponent={
-          isFetchingHistory ? <ActivityIndicator size="small" color="#999" style={{ marginVertical: 20 }} /> : null
-        }
-        renderItem={renderMessage}
-        contentContainerStyle={{ paddingVertical: 10 }}
-      />
+        <FlatList
+          data={messages}
+          keyExtractor={(item, index) => index.toString()}
+          inverted={true}
+          onEndReached={loadOlderMessages}
+          onEndReachedThreshold={0.2} // triggers when user is 20% away from top
+          ListFooterComponent={
+            isFetchingHistory ? <ActivityIndicator size="small" color="#999" style={{ marginVertical: 20 }} /> : null
+          }
+          renderItem={renderMessage}
+          contentContainerStyle={{ paddingVertical: 10 }}
+        />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 60}
-      >
         <View style={[styles.inputContainer, { backgroundColor: theme.primary_color }]}>
           <TouchableOpacity style={styles.attachButton}>
             <Text style={{ color: theme.accent_color, fontSize: 20 }}>+</Text>
@@ -296,8 +299,8 @@ export default function ChatChannel() {
             <Text style={{ color: theme.accent_color, fontWeight: "bold" }}>→</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

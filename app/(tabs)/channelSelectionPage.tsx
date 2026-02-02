@@ -10,10 +10,12 @@ import {
   StyleSheet,
   useColorScheme, // 3. Import hook
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChannelMetadata } from "../../types/types";
 import api from "../../utils/api";
 
 export default function ChannelSelectionPage() {
+  const insets = useSafeAreaInsets();
   const [channels, setChannels] = useState<ChannelMetadata[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,25 +38,16 @@ export default function ChannelSelectionPage() {
     useCallback(() => {
       setLoading(true);
       fetchChannels();
-    }, [])
+    }, []),
   );
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
-    >
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: theme.background }]}>
-        <Text
-          style={[
-            styles.headerTitle,
-            { color: colorScheme === "dark" ? theme.text : "#1A4D8C" },
-          ]}
-        >
+        <Text style={[styles.headerTitle, { color: colorScheme === "dark" ? theme.text : "#1A4D8C" }]}>
           My Channels
         </Text>
-        <Text style={[styles.headerSubtitle, { color: theme.subText }]}>
-          Select a channel to start messenging !
-        </Text>
+        <Text style={[styles.headerSubtitle, { color: theme.subText }]}>Select a channel to start messenging !</Text>
       </View>
 
       {loading ? (
@@ -65,16 +58,12 @@ export default function ChannelSelectionPage() {
         <FlatList
           data={channels}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <ChannelCard channelMetadata={item} onUpdate={fetchChannels} />
-          )}
+          renderItem={({ item }) => <ChannelCard channelMetadata={item} onUpdate={fetchChannels} />}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: theme.subText }]}>
-                No channels found.
-              </Text>
+              <Text style={[styles.emptyText, { color: theme.subText }]}>No channels found.</Text>
             </View>
           }
         />
