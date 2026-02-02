@@ -1,3 +1,4 @@
+import { useChannelAdmin } from "@/hooks/useChannelAdmin";
 import { ChannelMetadata } from "@/types/types";
 import { optimizeThemeForReadability } from "@/utils/utils";
 import React from "react";
@@ -6,15 +7,9 @@ import QRCode from "react-native-qrcode-svg";
 
 type QrCodeModalProps = {
   channel: ChannelMetadata;
-
-  visible: boolean;
-  setVisible: React.Dispatch<React.SetStateAction<boolean>>;
-
-  inviteLink: string;
-  isLoading: boolean;
 };
 
-export default function QrCodeModal({ channel, visible, setVisible, inviteLink, isLoading }: QrCodeModalProps) {
+export default function QrCodeModal({ channel }: QrCodeModalProps) {
   const theme = channel?.theme
     ? optimizeThemeForReadability(channel.theme)
     : {
@@ -25,27 +20,29 @@ export default function QrCodeModal({ channel, visible, setVisible, inviteLink, 
         accent_text_color: "#FFFFFF",
       };
 
+  const { isQrModalVisible, setQrModalVisible, qrInviteLink, isLoadingQr } = useChannelAdmin(channel);
+
   return (
-    <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={() => setVisible(false)}>
+    <Modal animationType="slide" transparent={true} visible={isQrModalVisible} onRequestClose={() => setQrModalVisible(false)}>
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: theme.primary_color_dark }]}>
           <Text style={[styles.modalTitle, { color: theme.text_color }]}>Scan to Join</Text>
 
           <View style={styles.qrContainer}>
-            {isLoading ? (
+            {isLoadingQr ? (
               <ActivityIndicator size="large" color={theme.accent_color} />
             ) : (
               <View style={styles.qrBackground}>
                 {/* We wrap QRCode in a white view because dark QRs on dark backgrounds rarely scan well */}
-                <QRCode value={inviteLink || "Loading..."} size={200} color="black" backgroundColor="white" />
+                <QRCode value={qrInviteLink || "Loading..."} size={200} color="black" backgroundColor="white" />
               </View>
             )}
           </View>
 
           <Text style={[styles.modalLabel, { color: theme.accent_text_color, marginTop: 20 }]}>#{channel?.name}</Text>
-          <Text style={[styles.modalLabel, { color: theme.accent_text_color, marginTop: 20 }]}>{inviteLink}</Text>
+          <Text style={[styles.modalLabel, { color: theme.accent_text_color, marginTop: 20 }]}>{qrInviteLink}</Text>
 
-          <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.text_color, marginTop: 10 }]} onPress={() => setVisible(false)}>
+          <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.text_color, marginTop: 10 }]} onPress={() => setQrModalVisible(false)}>
             <Text style={{ color: theme.primary_color_dark, fontWeight: "bold" }}>Close</Text>
           </TouchableOpacity>
         </View>

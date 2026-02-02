@@ -1,4 +1,4 @@
-import { Theme } from "@/types/types";
+import { Theme, UserMetadata } from "@/types/types";
 
 type RGB = {
   r: number;
@@ -186,4 +186,13 @@ export function optimizeThemeForReadability(originalTheme: Theme): Theme {
     text_color: text,
     accent_text_color: accentText,
   };
+}
+
+export function formatTime(timestamp: number) {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+export function getUserFromName(members: UserMetadata[], username: string) {
+  return members.find((member) => member.username == username);
 }
