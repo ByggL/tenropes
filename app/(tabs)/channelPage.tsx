@@ -1,6 +1,7 @@
 import ImageAttachment from "@/components/ImageAttachment";
 import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
 import api from "@/utils/api";
+import { setActiveChannel } from "@/utils/notifications";
 import { isImgUrl } from "@/utils/utils";
 import { Ionicons } from "@expo/vector-icons"; // 1. Import Icon
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"; // 2. Import useRouter
@@ -17,7 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 interface ChatChannelProps {
   channel: ChannelMetadata;
   messages: MessageMetadata[];
@@ -35,6 +35,19 @@ export default function ChatChannel() {
   const [inputText, setInputText] = useState("");
   const flatListRef = useRef<FlatList>(null);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!channel) return;
+
+      // On informe le handler que ce canal est ouvert
+      setActiveChannel(channel.id.toString());
+      console.log(channel.id.toString());
+      return () => {
+        // On libère le verrou en quittant
+        setActiveChannel(null);
+      };
+    }, [channel?.id]),
+  );
   useFocusEffect(
     useCallback(() => {
       if (!channel) return;

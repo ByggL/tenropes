@@ -3,6 +3,7 @@ import { Text, View } from "@/components/Themed"; // Imports your auto-theming c
 import Colors from "@/constants/Colors";
 import { UserMetadata } from "@/types/types";
 import api from "@/utils/api";
+import { resetNotificationConfig } from "@/utils/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -69,7 +70,7 @@ export default function UserProfilePage() {
 
       loadUserData();
       return () => {};
-    }, [])
+    }, []),
   );
 
   // 3. Handle opening the dialog
@@ -109,7 +110,7 @@ export default function UserProfilePage() {
       // 1. Clear session data
       await AsyncStorage.removeItem("currentUsername");
       await AsyncStorage.removeItem("jwt_token");
-
+      resetNotificationConfig();
       // 2. Redirect to Login (replace prevents going back)
       router.replace("/(login)");
     } catch (error) {

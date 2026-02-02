@@ -1,7 +1,6 @@
 import ChannelCard from "@/components/channelCard";
 import { Text, View } from "@/components/Themed"; // 1. Use Themed components
 import Colors from "@/constants/Colors"; // 2. Import Colors
-import { triggerNotification } from "@/utils/notifications";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -11,7 +10,7 @@ import {
   StyleSheet,
   useColorScheme,
 } from "react-native";
-import { ChannelMetadata, NotificationData } from "../../types/types";
+import { ChannelMetadata } from "../../types/types";
 import api from "../../utils/api";
 
 export default function ChannelSelectionPage() {
@@ -31,11 +30,6 @@ export default function ChannelSelectionPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleNotif = async () => {
-    const notifdata = { body: "Hello", title: "Haha" } as NotificationData;
-    await triggerNotification(notifdata);
   };
 
   useFocusEffect(

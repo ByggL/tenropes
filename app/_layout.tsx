@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import "react-native-reanimated";
 
 import { useColorScheme } from "@/components/useColorScheme";
+import { getNotificationsPermission } from "@/utils/notifications";
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -48,6 +49,14 @@ export default function RootLayout() {
 
   return <RootLayoutNav />;
 }
+
+useEffect(() => {
+  const setup = async () => {
+    await getNotificationsPermission();
+  };
+
+  setup();
+}, []);
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();

@@ -2,11 +2,7 @@
 import logo from "@/assets/images/tenropes_proposition.png";
 import api from "@/utils/api";
 import { getJwt } from "@/utils/jwt";
-import {
-  getNotificationsPermission,
-  pullAndPostToken,
-  setupNotifChannel,
-} from "@/utils/notifications";
+import { pullAndPostToken } from "@/utils/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -48,7 +44,6 @@ export default function LoginScreen() {
 
         // Check if token is less than 3 hours old
         if (now - timestamp < threeHoursInMs) {
-          pullAndPostToken();
           console.log("Valid session found, redirecting...");
           router.replace({
             pathname: "/(tabs)/channelSelectionPage",
@@ -66,8 +61,6 @@ export default function LoginScreen() {
   };
 
   useEffect(() => {
-    setupNotifChannel();
-    getNotificationsPermission();
     checkToken();
   }, []);
 
@@ -85,9 +78,9 @@ export default function LoginScreen() {
     try {
       const result = await api.login(username, password);
       console.log(result);
-      console.log("Login successful. Simulating navigation to main content.");
+      console.log("Login successful. Navigation to main content.");
       console.log(username);
-      pullAndPostToken();
+      await pullAndPostToken();
       await AsyncStorage.setItem("currentUsername", username);
       setWrongIdentifiers(false);
       setLoading(false);

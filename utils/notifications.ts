@@ -1,90 +1,80 @@
-import { NotificationData } from "@/types/types";
-import api from "@/utils/api";
+// utils/notifications.ts
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
-import { AndroidNotificationPriority } from "expo-notifications";
-import { Platform } from "react-native";
 
 let notificationsRefused = false;
+let activeChannelId: string | null = null;
+
+export const setActiveChannel = (id: string | null) => {
+  activeChannelId = id;
+};
+
+export const resetNotificationConfig = () => {
+  activeChannelId = null;
+};
 
 export const pullAndPostToken = async () => {
+  Notifications.setNotificationHandler(null as any);
+
   const projectId =
     Constants?.expoConfig?.extra?.eas?.projectId ??
     Constants?.easConfig?.projectId;
-  console.log(projectId);
+
   if (!projectId) {
     console.error("Problem with project id");
+    return;
   }
-  try {
-    const pushTokenString = (
-      await Notifications.getExpoPushTokenAsync({ projectId })
-    ).data;
-    console.log("Hello, your push token :");
-    console.log(pushTokenString);
-    await api.postPushToken(pushTokenString);
-  } catch (e) {
-    throw new Error("Error while fetching and pushing expo push token ");
-  }
-};
 
-export const setupNotifChannel = async () => {
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("myNotificationChannel", {
-      name: "A channel is needed for the permissions prompt to appear",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#FF231F7C",
+  try {
+    const tokenRequest = await Notifications.getExpoPushTokenAsync({
+      projectId,
     });
-    console.log("channel setuped");
+    const pushTokenString = tokenRequest.data;
+
+    // await api.postPushToken(pushTokenString);
+
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        priority: AndroidNotificationPriority.HIGH, // Android
-        shouldPlaySound: false, // Sur android, pas de notif!
-        shouldSetBadge: false, // iOS
-        shouldShowBanner: true, // iOS
-        shouldShowList: true, // iOS : est-elle affichée dans la liste de notifs ?
-      }),
+      handleNotification: async (notification) => {
+        // Log immédiat pour vérifier si le handler est touché
+        console.log("--- HANDLER TRIGGERED ---");
+
+        const data = notification.request.content.data;
+        const incomingChannelId = data?.channel_id?.toString();
+
+        // On log les variables de comparaison
+        console.log("Active:", activeChannelId, "Incoming:", incomingChannelId);
+        console.log("Full Data:", JSON.stringify(data, null, 2));
+
+        const shouldDisplay = activeChannelId !== incomingChannelId;
+
+        return {
+          shouldPlaySound: shouldDisplay,
+          shouldSetBadge: shouldDisplay,
+          shouldShowBanner: shouldDisplay,
+          shouldShowList: shouldDisplay,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        };
+      },
     });
+  } catch (e) {
+    console.error("Error notifications:", e);
   }
 };
 
 export const getNotificationsPermission = async () => {
-  if (notificationsRefused) {
+  if (notificationsRefused) return false;
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (finalStatus !== "granted") {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== "granted") {
+    notificationsRefused = true;
     return false;
   }
-
-  if (true) {
-    {
-      /* device.isDevice*/
-    }
-    const { status: existingStatus } =
-      await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (finalStatus !== "granted" && !notificationsRefused) {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== "granted") {
-      console.error("Notifications refusées");
-      notificationsRefused = true;
-      return false;
-    }
-  }
-  return false;
-};
-
-export const triggerNotification = async (
-  notificationData: NotificationData,
-) => {
-  if (await getNotificationsPermission()) {
-    console.log("testeuh");
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: notificationData.title,
-        body: notificationData.body,
-      },
-      trigger: null,
-    });
-    console.log("fin de testeuh ");
-  }
+  return true; // Retourne true si on a les perms
 };
