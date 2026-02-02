@@ -1,11 +1,6 @@
-import ImageAttachment from "@/components/ImageAttachment";
-import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
-import api from "@/utils/api";
-import { isImgUrl } from "@/utils/utils";
-import { Ionicons } from "@expo/vector-icons"; // 1. Import Icon
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"; // 2. Import useRouter
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -18,6 +13,12 @@ import {
   View,
 } from "react-native";
 
+import ImageAttachment from "@/components/ImageAttachment";
+import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
+import api from "@/utils/api";
+import { formatImgUrl, isImgUrl, optimizeThemeForReadability } from "@/utils/utils";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"; // 1. Import useFocusEffect
+
 interface ChatChannelProps {
   channel: ChannelMetadata;
   messages: MessageMetadata[];
@@ -26,30 +27,36 @@ interface ChatChannelProps {
 export default function ChatChannel() {
   const router = useRouter(); // 3. Initialize router
   const channelParam = useLocalSearchParams().channel;
-  const channel: ChannelMetadata = channelParam
-    ? JSON.parse(channelParam as string)
-    : null;
+  const channel: ChannelMetadata = channelParam ? JSON.parse(channelParam as string) : null;
 
-  const [messages, setMessages] = useState<MessageMetadata[]>([]);
   const [members, setMembers] = useState<UserMetadata[]>([]);
   const [inputText, setInputText] = useState("");
   const flatListRef = useRef<FlatList>(null);
 
+  const [messages, setMessages] = useState<MessageMetadata[]>([]);
+  const [isFetchingHistory, setIsFetchingHistory] = useState(false);
+  const [batchOffset, setBatchOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+
+  // 2. Use useFocusEffect instead of useEffect
   useFocusEffect(
     useCallback(() => {
       if (!channel) return;
 
       console.log("Refreshing channel " + channel.id);
 
-      api.getMessages(channel.id, 0).then((result) => {
-        setMessages(result);
+      setBatchOffset(0);
+      setHasMore(true);
+      setIsFetchingHistory(false);
+
+      api.getMessages(channel.id, 0).then((initialMessages) => {
+        // inverted because we want newest message at the start of the array
+        setMessages(initialMessages.reverse());
       });
 
       api.getUserData(channel.users).then((result) => setMembers(result));
 
-      const socket = new WebSocket(
-        `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`,
-      );
+      const socket = new WebSocket(`https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`);
 
       socket.onopen = () => {
         console.log("Connected!");
@@ -57,7 +64,8 @@ export default function ChatChannel() {
 
       socket.onmessage = (event) => {
         const newMessage = JSON.parse(event.data);
-        setMessages((prev) => [...prev, newMessage]);
+
+        setMessages((prev) => [newMessage, ...prev]);
       };
 
       return () => {
@@ -67,14 +75,35 @@ export default function ChatChannel() {
     }, [channel?.id]), // Re-run if channel ID changes
   );
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      flatListRef.current?.scrollToEnd({ animated: true });
+  const loadOlderMessages = async () => {
+    if (isFetchingHistory || !hasMore) return;
+
+    setIsFetchingHistory(true);
+
+    try {
+      const nextBatch = batchOffset + 40;
+
+      const olderMessages = await api.getMessages(channel.id, nextBatch);
+
+      if (olderMessages.length === 0) {
+        setHasMore(false);
+      } else {
+        // since API returns [oldest ... newer], we need them reversed [newer ... oldest] to append to the list
+        const reversedHistory = olderMessages.reverse();
+
+        setMessages((prev) => [...prev, ...reversedHistory]);
+
+        setBatchOffset(nextBatch);
+      }
+    } catch (error) {
+      console.error("Failed to load history:", error);
+    } finally {
+      setIsFetchingHistory(false);
     }
-  }, [messages]);
+  };
 
   const theme = channel?.theme
-    ? channel.theme
+    ? optimizeThemeForReadability(channel.theme)
     : {
         primary_color: "#E91E63",
         primary_color_dark: "#C2185B",
@@ -93,7 +122,7 @@ export default function ChatChannel() {
 
     api.sendMessage(channel.id, {
       type: isImageLink ? "Image" : "Text",
-      value: content,
+      value: isImageLink ? formatImgUrl(content) : content,
     });
 
     setInputText("");
@@ -108,15 +137,9 @@ export default function ChatChannel() {
     return members.find((member) => member.username == username);
   };
 
-  const renderMessage = ({
-    item,
-    index,
-  }: {
-    item: MessageMetadata;
-    index: number;
-  }) => {
-    const isSameAuthor =
-      index > 0 && messages[index - 1].author === item.author;
+  const renderMessage = ({ item, index }: { item: MessageMetadata; index: number }) => {
+    const olderMessage = messages[index + 1];
+    const isSameAuthor = olderMessage && olderMessage.author === item.author;
 
     // Use a default avatar if none exists
     const avatarUrl = `https://pixelcorner.fr/cdn/shop/articles/le-nyan-cat-618805.webp?v=1710261022&width=2048`;
@@ -126,12 +149,7 @@ export default function ChatChannel() {
     };
 
     return (
-      <View
-        style={[
-          styles.messageContainer,
-          isSameAuthor ? styles.messageContainerCompact : null,
-        ]}
-      >
+      <View style={[styles.messageContainer, isSameAuthor ? styles.messageContainerCompact : null]}>
         {!isSameAuthor ? (
           <Image source={{ uri: senderAvatar() }} style={styles.avatar} />
         ) : (
@@ -141,25 +159,16 @@ export default function ChatChannel() {
         <View style={styles.messageContent}>
           {!isSameAuthor && (
             <View style={styles.headerContent}>
-              <Text style={[styles.authorName, { color: theme.text_color }]}>
-                {item.author}
-              </Text>
+              <Text style={[styles.authorName, { color: theme.text_color }]}>{item.author}</Text>
               <Text style={styles.timestamp}>{formatTime(item.timestamp)}</Text>
             </View>
           )}
 
           {item.content.type == "Text" ? (
-            <Text
-              style={[styles.messageText, { color: theme.accent_text_color }]}
-            >
-              {item.content.value}
-            </Text>
+            <Text style={[styles.messageText, { color: theme.accent_text_color }]}>{item.content.value}</Text>
           ) : (
             // <Image source={{ uri: item.content.value }} style={styles.imageAttachment} resizeMode="cover" />
-            <ImageAttachment
-              uri={item.content.value}
-              baseStyle={styles.imageAttachment}
-            />
+            <ImageAttachment uri={item.content.value} baseStyle={styles.imageAttachment} />
           )}
         </View>
       </View>
@@ -167,13 +176,8 @@ export default function ChatChannel() {
   };
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: theme.primary_color_dark }]}
-    >
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={theme.primary_color_dark}
-      />
+    <View style={[styles.container, { backgroundColor: theme.primary_color_dark }]}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.primary_color_dark} />
 
       <View
         style={[
@@ -184,57 +188,28 @@ export default function ChatChannel() {
           },
         ]}
       >
-        {/* 4. Added Back Button */}
-        <TouchableOpacity
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              // Fallback: If no history, force navigation to the list
-              router.replace("/(tabs)/channelSelectionPage");
-            }
-          }}
-          style={styles.backButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Easier to press
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.accent_color} />
-        </TouchableOpacity>
-
-        <Text style={[styles.channelHash, { color: theme.accent_color }]}>
-          #
-        </Text>
-        <Text style={[styles.channelName, { color: theme.text_color }]}>
-          {channel?.name}
-        </Text>
+        <Image source={{ uri: channel.img }} style={styles.avatar} />
+        <Text style={[styles.channelName, { color: theme.text_color, paddingLeft: 8 }]}>{channel?.name}</Text>
       </View>
 
       <FlatList
-        ref={flatListRef}
         data={messages}
         keyExtractor={(item, index) => index.toString()}
+        inverted={true}
+        onEndReached={loadOlderMessages}
+        onEndReachedThreshold={0.2} // triggers when user is 20% away from top
+        ListFooterComponent={
+          isFetchingHistory ? <ActivityIndicator size="small" color="#999" style={{ marginVertical: 20 }} /> : null
+        }
         renderItem={renderMessage}
-        contentContainerStyle={styles.listContent}
-        onContentSizeChange={() => {
-          if (messages.length > 0) {
-            setTimeout(() => {
-              flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
-          }
-        }}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        removeClippedSubviews={true}
+        contentContainerStyle={{ paddingVertical: 10 }}
       />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
       >
-        <View
-          style={[
-            styles.inputContainer,
-            { backgroundColor: theme.primary_color },
-          ]}
-        >
+        <View style={[styles.inputContainer, { backgroundColor: theme.primary_color }]}>
           <TouchableOpacity style={styles.attachButton}>
             <Text style={{ color: theme.accent_color, fontSize: 20 }}>+</Text>
           </TouchableOpacity>
@@ -243,7 +218,7 @@ export default function ChatChannel() {
             style={[
               styles.input,
               {
-                color: theme.text_color,
+                color: theme.accent_text_color,
                 backgroundColor: theme.primary_color_dark,
               },
             ]}
@@ -255,9 +230,7 @@ export default function ChatChannel() {
           />
 
           <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
-            <Text style={{ color: theme.accent_color, fontWeight: "bold" }}>
-              →
-            </Text>
+            <Text style={{ color: theme.accent_color, fontWeight: "bold" }}>→</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -296,6 +269,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: 16,
+    flexGrow: 1,
+    justifyContent: "flex-end",
   },
   messageContainer: {
     flexDirection: "row",
