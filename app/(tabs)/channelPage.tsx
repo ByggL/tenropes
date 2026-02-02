@@ -16,7 +16,7 @@ import {
 import ImageAttachment from "@/components/ImageAttachment";
 import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
 import api from "@/utils/api";
-import { isImgUrl } from "@/utils/utils";
+import { formatImgUrl, isImgUrl, optimizeThemeForReadability } from "@/utils/utils";
 import { useFocusEffect, useLocalSearchParams } from "expo-router"; // 1. Import useFocusEffect
 
 interface ChatChannelProps {
@@ -68,7 +68,6 @@ export default function ChatChannel() {
         setMessages((prev) => [newMessage, ...prev]);
       };
 
-      // C. Cleanup function (runs when you leave the screen or blur)
       return () => {
         console.log("Closing socket for channel " + channel.id);
         socket.close();
@@ -104,7 +103,7 @@ export default function ChatChannel() {
   };
 
   const theme = channel?.theme
-    ? channel.theme
+    ? optimizeThemeForReadability(channel.theme)
     : {
         primary_color: "#E91E63",
         primary_color_dark: "#C2185B",
@@ -123,7 +122,7 @@ export default function ChatChannel() {
 
     api.sendMessage(channel.id, {
       type: isImageLink ? "Image" : "Text",
-      value: content,
+      value: isImageLink ? formatImgUrl(content) : content,
     });
 
     setInputText("");
@@ -207,24 +206,6 @@ export default function ChatChannel() {
         contentContainerStyle={{ paddingVertical: 10 }}
       />
 
-      {/* <FlatList
-        ref={flatListRef}
-        data={messages}
-        // Force re-render when messages change
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.listContent}
-        onContentSizeChange={() => {
-          if (messages.length > 0) {
-            setTimeout(() => {
-              flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
-          }
-        }}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        removeClippedSubviews={true}
-      /> */}
-
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
@@ -238,7 +219,7 @@ export default function ChatChannel() {
             style={[
               styles.input,
               {
-                color: theme.text_color,
+                color: theme.accent_text_color,
                 backgroundColor: theme.primary_color_dark,
               },
             ]}
