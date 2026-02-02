@@ -1,8 +1,10 @@
+import ImageAttachment from "@/components/ImageAttachment";
 import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
 import api from "@/utils/api";
+import { isImgUrl } from "@/utils/utils";
 import { Ionicons } from "@expo/vector-icons"; // 1. Import Icon
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"; // 2. Import useRouter
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -46,7 +48,7 @@ export default function ChatChannel() {
       api.getUserData(channel.users).then((result) => setMembers(result));
 
       const socket = new WebSocket(
-        `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`
+        `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`,
       );
 
       socket.onopen = () => {
@@ -62,8 +64,14 @@ export default function ChatChannel() {
         console.log("Closing socket for channel " + channel.id);
         socket.close();
       };
-    }, [channel?.id])
+    }, [channel?.id]), // Re-run if channel ID changes
   );
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
   const theme = channel?.theme
     ? channel.theme
@@ -76,11 +84,18 @@ export default function ChatChannel() {
       };
 
   const handleSend = () => {
-    if (inputText.trim().length === 0) return;
+    const content = inputText.trim();
+    if (content.length === 0) return;
+
+    const isImageLink = isImgUrl(content);
+
+    console.log(isImageLink);
+
     api.sendMessage(channel.id, {
-      type: "Text",
-      value: inputText.trim(),
+      type: isImageLink ? "Image" : "Text",
+      value: content,
     });
+
     setInputText("");
   };
 
@@ -140,10 +155,10 @@ export default function ChatChannel() {
               {item.content.value}
             </Text>
           ) : (
-            <Image
-              source={{ uri: item.content.value }}
-              style={styles.imageAttachment}
-              resizeMode="cover"
+            // <Image source={{ uri: item.content.value }} style={styles.imageAttachment} resizeMode="cover" />
+            <ImageAttachment
+              uri={item.content.value}
+              baseStyle={styles.imageAttachment}
             />
           )}
         </View>
@@ -199,10 +214,15 @@ export default function ChatChannel() {
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderMessage}
         contentContainerStyle={styles.listContent}
-        onContentSizeChange={() =>
-          flatListRef.current?.scrollToEnd({ animated: true })
-        }
+        onContentSizeChange={() => {
+          if (messages.length > 0) {
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }
+        }}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        removeClippedSubviews={true}
       />
 
       <KeyboardAvoidingView
@@ -313,12 +333,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   imageAttachment: {
-    width: 280,
-    height: 180,
+    // width: 280,
+    // height: 180,
     borderRadius: 8,
     marginTop: 6,
     backgroundColor: "#202225",
     overflow: "hidden",
+    maxWidth: "100%",
   },
   messageText: {
     fontSize: 15,
