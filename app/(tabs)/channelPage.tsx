@@ -5,7 +5,6 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Share,
   StatusBar,
@@ -15,8 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import QRCode from "react-native-qrcode-svg";
 
+import QrCodeModal from "@/components/chat/QrCodeModal";
 import ImageAttachment from "@/components/ImageAttachment";
 import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
 import api from "@/utils/api";
@@ -104,6 +103,25 @@ export default function ChatChannel() {
     loadUserData();
   }, []);
 
+  const handleShowQrCode = async () => {
+    setQrModalVisible(true);
+
+    // Only fetch if we haven't fetched it yet (or fetch every time if links expire)
+    if (qrInviteLink) return;
+
+    setIsLoadingQr(true);
+    try {
+      const link = await api.createInvite(channel.id);
+      setQrInviteLink(link);
+    } catch (error) {
+      Alert.alert("Error", "Could not generate QR code.");
+      console.error(error);
+      setQrModalVisible(false);
+    } finally {
+      setIsLoadingQr(false);
+    }
+  };
+
   const handleShareInvite = async () => {
     if (isSharing) return;
     setIsSharing(true);
@@ -131,25 +149,6 @@ export default function ChatChannel() {
       console.error(error);
     } finally {
       setIsSharing(false);
-    }
-  };
-
-  const handleShowQrCode = async () => {
-    setQrModalVisible(true);
-
-    // Only fetch if we haven't fetched it yet (or fetch every time if links expire)
-    if (qrInviteLink) return;
-
-    setIsLoadingQr(true);
-    try {
-      const link = await api.createInvite(channel.id);
-      setQrInviteLink(link);
-    } catch (error) {
-      Alert.alert("Error", "Could not generate QR code.");
-      console.error(error);
-      setQrModalVisible(false);
-    } finally {
-      setIsLoadingQr(false);
     }
   };
 
@@ -228,11 +227,7 @@ export default function ChatChannel() {
 
     return (
       <View style={[styles.messageContainer, isSameAuthor ? styles.messageContainerCompact : null]}>
-        {!isSameAuthor ? (
-          <Image source={{ uri: senderAvatar() }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder} />
-        )}
+        {!isSameAuthor ? <Image source={{ uri: senderAvatar() }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder} />}
 
         <View style={styles.messageContent}>
           {!isSameAuthor && (
@@ -294,9 +289,7 @@ export default function ChatChannel() {
         inverted={true}
         onEndReached={loadOlderMessages}
         onEndReachedThreshold={0.2} // triggers when user is 20% away from top
-        ListFooterComponent={
-          isFetchingHistory ? <ActivityIndicator size="small" color="#999" style={{ marginVertical: 20 }} /> : null
-        }
+        ListFooterComponent={isFetchingHistory ? <ActivityIndicator size="small" color="#999" style={{ marginVertical: 20 }} /> : null}
         renderItem={renderMessage}
         contentContainerStyle={{ paddingVertical: 10 }}
       />
@@ -332,39 +325,7 @@ export default function ChatChannel() {
         </View>
       </KeyboardAvoidingView>
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isQrModalVisible}
-        onRequestClose={() => setQrModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.primary_color_dark }]}>
-            <Text style={[styles.modalTitle, { color: theme.text_color }]}>Scan to Join</Text>
-
-            <View style={styles.qrContainer}>
-              {isLoadingQr ? (
-                <ActivityIndicator size="large" color={theme.accent_color} />
-              ) : (
-                <View style={styles.qrBackground}>
-                  {/* We wrap QRCode in a white view because dark QRs on dark backgrounds rarely scan well */}
-                  <QRCode value={qrInviteLink || "Loading..."} size={200} color="black" backgroundColor="white" />
-                </View>
-              )}
-            </View>
-
-            <Text style={[styles.modalLabel, { color: theme.accent_text_color, marginTop: 20 }]}>#{channel?.name}</Text>
-            <Text style={[styles.modalLabel, { color: theme.accent_text_color, marginTop: 20 }]}>{qrInviteLink}</Text>
-
-            <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: theme.text_color, marginTop: 10 }]}
-              onPress={() => setQrModalVisible(false)}
-            >
-              <Text style={{ color: theme.primary_color_dark, fontWeight: "bold" }}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <QrCodeModal channel={channel} visible={isQrModalVisible} setVisible={setQrModalVisible} inviteLink={qrInviteLink} isLoading={isLoadingQr} />
     </SafeAreaView>
   );
 }
