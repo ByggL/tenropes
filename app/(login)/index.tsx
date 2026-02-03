@@ -2,13 +2,8 @@
 import logo from "@/assets/images/tenropes_proposition.png";
 import api from "@/utils/api";
 import { getJwt } from "@/utils/jwt";
-import {
-  getNotificationsPermission,
-  setupNotifChannel,
-} from "@/utils/notifications";
+import { pullAndPostToken } from "@/utils/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 
@@ -37,26 +32,6 @@ export default function LoginScreen() {
   // State to handle initial token check
   const [isCheckingToken, setIsCheckingToken] = useState(true);
 
-  const pullAndPostToken = async () => {
-    const projectId =
-      Constants?.expoConfig?.extra?.eas?.projectId ??
-      Constants?.easConfig?.projectId;
-    console.log(projectId);
-    if (!projectId) {
-      console.error("Problem with project id");
-    }
-    try {
-      const pushTokenString = (
-        await Notifications.getExpoPushTokenAsync({ projectId })
-      ).data;
-      console.log("Hello, your push token :");
-      console.log(pushTokenString);
-      await api.postPushToken(pushTokenString);
-    } catch (e) {
-      throw new Error("Error while fetching and pushing expo push token ");
-    }
-  };
-
   const checkToken = async () => {
     try {
       // Fetch the stored object
@@ -69,7 +44,6 @@ export default function LoginScreen() {
 
         // Check if token is less than 3 hours old
         if (now - timestamp < threeHoursInMs) {
-          pullAndPostToken();
           console.log("Valid session found, redirecting...");
           router.replace({
             pathname: "/(tabs)/channelSelectionPage",
@@ -87,8 +61,6 @@ export default function LoginScreen() {
   };
 
   useEffect(() => {
-    setupNotifChannel();
-    getNotificationsPermission();
     checkToken();
   }, []);
 
@@ -106,9 +78,9 @@ export default function LoginScreen() {
     try {
       const result = await api.login(username, password);
       console.log(result);
-      console.log("Login successful. Simulating navigation to main content.");
+      console.log("Login successful. Navigation to main content.");
       console.log(username);
-      pullAndPostToken();
+      await pullAndPostToken();
       await AsyncStorage.setItem("currentUsername", username);
       setWrongIdentifiers(false);
       setLoading(false);

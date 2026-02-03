@@ -16,6 +16,7 @@ import {
 import ImageAttachment from "@/components/ImageAttachment";
 import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
 import api from "@/utils/api";
+import { setActiveChannel } from "@/utils/notifications";
 import { formatImgUrl, isImgUrl, optimizeThemeForReadability } from "@/utils/utils";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"; // 1. Import useFocusEffect
 
@@ -39,6 +40,19 @@ export default function ChatChannel() {
   const [hasMore, setHasMore] = useState(true);
 
   // 2. Use useFocusEffect instead of useEffect
+  useFocusEffect(
+    useCallback(() => {
+      if (!channel) return;
+
+      // On informe le handler que ce canal est ouvert
+      setActiveChannel(channel.id.toString());
+      console.log(channel.id.toString());
+      return () => {
+        // On libère le verrou en quittant
+        setActiveChannel(null);
+      };
+    }, [channel?.id]),
+  );
   useFocusEffect(
     useCallback(() => {
       if (!channel) return;
