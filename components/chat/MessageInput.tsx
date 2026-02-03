@@ -31,9 +31,9 @@ export default function MessageInput({ channel, inputText, setInputText, handleS
       style={{ paddingTop: insets.top }}
     >
       <View style={[styles.inputContainer, { backgroundColor: theme.primary_color }]}>
-        <TouchableOpacity style={styles.attachButton}>
+        {/* <TouchableOpacity style={styles.attachButton}>
           <Text style={{ color: theme.accent_color, fontSize: 20 }}>+</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         <TextInput
           style={[

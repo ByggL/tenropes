@@ -1,4 +1,3 @@
-import { useChannelAdmin } from "@/hooks/useChannelAdmin";
 import { ChannelMetadata } from "@/types/types";
 import { optimizeThemeForReadability } from "@/utils/utils";
 import React from "react";
@@ -6,9 +5,20 @@ import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } fr
 
 type ChannelHeaderProps = {
   channel: ChannelMetadata;
+
+  isAdmin: boolean;
+  handleShowQrCode: () => Promise<void>;
+  handleShareInvite: () => Promise<void>;
+  isSharing: boolean;
 };
 
-export default function ChannelHeader({ channel }: ChannelHeaderProps) {
+export default function ChannelHeader({
+  channel,
+  isAdmin,
+  handleShowQrCode,
+  handleShareInvite,
+  isSharing,
+}: ChannelHeaderProps) {
   const theme = channel?.theme
     ? optimizeThemeForReadability(channel.theme)
     : {
@@ -18,8 +28,6 @@ export default function ChannelHeader({ channel }: ChannelHeaderProps) {
         text_color: "#212121",
         accent_text_color: "#FFFFFF",
       };
-
-  const { isAdmin, isSharing, handleShowQrCode, handleShareInvite } = useChannelAdmin(channel);
 
   return (
     <View

@@ -1,4 +1,3 @@
-import { useChannelAdmin } from "@/hooks/useChannelAdmin";
 import { ChannelMetadata } from "@/types/types";
 import { optimizeThemeForReadability } from "@/utils/utils";
 import React from "react";
@@ -7,9 +6,21 @@ import QRCode from "react-native-qrcode-svg";
 
 type QrCodeModalProps = {
   channel: ChannelMetadata;
+
+  isQrModalVisible: boolean;
+  setQrModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+
+  isLoadingQr: boolean;
+  qrInviteLink: string;
 };
 
-export default function QrCodeModal({ channel }: QrCodeModalProps) {
+export default function QrCodeModal({
+  channel,
+  isQrModalVisible,
+  setQrModalVisible,
+  isLoadingQr,
+  qrInviteLink,
+}: QrCodeModalProps) {
   const theme = channel?.theme
     ? optimizeThemeForReadability(channel.theme)
     : {
@@ -20,10 +31,13 @@ export default function QrCodeModal({ channel }: QrCodeModalProps) {
         accent_text_color: "#FFFFFF",
       };
 
-  const { isQrModalVisible, setQrModalVisible, qrInviteLink, isLoadingQr } = useChannelAdmin(channel);
-
   return (
-    <Modal animationType="slide" transparent={true} visible={isQrModalVisible} onRequestClose={() => setQrModalVisible(false)}>
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isQrModalVisible}
+      onRequestClose={() => setQrModalVisible(false)}
+    >
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: theme.primary_color_dark }]}>
           <Text style={[styles.modalTitle, { color: theme.text_color }]}>Scan to Join</Text>
@@ -42,7 +56,10 @@ export default function QrCodeModal({ channel }: QrCodeModalProps) {
           <Text style={[styles.modalLabel, { color: theme.accent_text_color, marginTop: 20 }]}>#{channel?.name}</Text>
           <Text style={[styles.modalLabel, { color: theme.accent_text_color, marginTop: 20 }]}>{qrInviteLink}</Text>
 
-          <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.text_color, marginTop: 10 }]} onPress={() => setQrModalVisible(false)}>
+          <TouchableOpacity
+            style={[styles.modalBtn, { backgroundColor: theme.text_color, marginTop: 10 }]}
+            onPress={() => setQrModalVisible(false)}
+          >
             <Text style={{ color: theme.primary_color_dark, fontWeight: "bold" }}>Close</Text>
           </TouchableOpacity>
         </View>

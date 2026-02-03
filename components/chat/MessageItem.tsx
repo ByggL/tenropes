@@ -1,5 +1,5 @@
 import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
-import { formatTime, getUserFromName, optimizeThemeForReadability } from "@/utils/utils";
+import { formatTime, getUserFromName, isSameDay, optimizeThemeForReadability } from "@/utils/utils";
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import ImageAttachment from "./ImageAttachment";
@@ -26,6 +26,8 @@ export default function MessageInput({ item, index, channel, messages, members }
   const olderMessage = messages[index + 1];
   const isSameAuthor = olderMessage && olderMessage.author === item.author;
 
+  const showDateSeparator = !olderMessage || !isSameDay(item.timestamp, olderMessage.timestamp);
+
   // Use a default avatar if none exists
   const avatarUrl = `https://pixelcorner.fr/cdn/shop/articles/le-nyan-cat-618805.webp?v=1710261022&width=2048`;
   const author = getUserFromName(members, item.author);
@@ -34,23 +36,43 @@ export default function MessageInput({ item, index, channel, messages, members }
   };
 
   return (
-    <View style={[styles.messageContainer, isSameAuthor ? styles.messageContainerCompact : null]}>
-      {!isSameAuthor ? <Image source={{ uri: senderAvatar() }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder} />}
+    <View>
+      {showDateSeparator && (
+        <View style={styles.dateSeparator}>
+          <Text style={[styles.dateSeparatorText, { color: theme.accent_text_color }]}>
+            {new Date(item.timestamp).toLocaleDateString(undefined, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })}
+          </Text>
+        </View>
+      )}
 
-      <View style={styles.messageContent}>
-        {!isSameAuthor && (
-          <View style={styles.headerContent}>
-            <Text style={[styles.authorName, { color: theme.text_color }]}>{item.author}</Text>
-            <Text style={styles.timestamp}>{formatTime(item.timestamp)}</Text>
-          </View>
-        )}
-
-        {item.content.type == "Text" ? (
-          <Text style={[styles.messageText, { color: theme.accent_text_color }]}>{item.content.value}</Text>
+      <View style={[styles.messageContainer, isSameAuthor ? styles.messageContainerCompact : null]}>
+        {!isSameAuthor || showDateSeparator ? (
+          <Image source={{ uri: senderAvatar() }} style={styles.avatar} />
         ) : (
-          // <Image source={{ uri: item.content.value }} style={styles.imageAttachment} resizeMode="cover" />
-          <ImageAttachment uri={item.content.value} baseStyle={styles.imageAttachment} />
+          <View style={styles.avatarPlaceholder} />
         )}
+
+        <View style={styles.messageContent}>
+          {(!isSameAuthor || showDateSeparator) && (
+            <View style={styles.headerContent}>
+              <Text style={[styles.authorName, { color: theme.text_color }]}>
+                {author?.display_name || author?.username || item.author}
+              </Text>
+              <Text style={[styles.timestamp, { color: theme.accent_text_color }]}>{formatTime(item.timestamp)}</Text>
+            </View>
+          )}
+
+          {item.content.type == "Text" ? (
+            <Text style={[styles.messageText, { color: theme.accent_text_color }]}>{item.content.value}</Text>
+          ) : (
+            // <Image source={{ uri: item.content.value }} style={styles.imageAttachment} resizeMode="cover" />
+            <ImageAttachment uri={item.content.value} baseStyle={styles.imageAttachment} />
+          )}
+        </View>
       </View>
     </View>
   );
@@ -89,7 +111,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   timestamp: {
-    color: "#72767d",
+    // color: "#494949",
     fontSize: 12,
   },
   imageAttachment: {
@@ -104,5 +126,20 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 20,
+  },
+  dateSeparator: {
+    alignItems: "flex-start",
+    marginVertical: 16,
+    marginBottom: 8,
+    marginLeft: 16,
+  },
+  dateSeparatorText: {
+    fontSize: 12,
+    fontWeight: "600",
+    backgroundColor: "rgba(0,0,0,0.05)", // Optional: bubble effect
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: "hidden", // needed for borderRadius on Text on Android sometimes
   },
 });

@@ -196,3 +196,14 @@ export function formatTime(timestamp: number) {
 export function getUserFromName(members: UserMetadata[], username: string) {
   return members.find((member) => member.username == username);
 }
+
+export const isSameDay = (d1: number | string, d2: number | string) => {
+  const date1 = new Date(d1);
+  const date2 = new Date(d2);
+
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+};
