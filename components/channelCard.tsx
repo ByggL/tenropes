@@ -2,9 +2,11 @@ import Colors from "@/constants/Colors"; // 3. Import Colors
 import { ChannelMetadata, ChannelUpdateMetadata } from "@/types/types";
 import api from "@/utils/api";
 import { FontAwesome } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Modal,
@@ -14,6 +16,7 @@ import {
   // or rename them. Here I stick to standard RN imports but apply theme styles manually
   // to ensure I don't break your structure.
   Text,
+  TextInput,
   View,
   useColorScheme, // 2. Import hook
 } from "react-native";
@@ -24,20 +27,38 @@ interface ChannelCardProps {
   onUpdate: () => void;
 }
 
-export default function ChannelCard({
-  channelMetadata,
-  onUpdate,
-}: ChannelCardProps) {
+export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardProps) {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState<"menu" | "edit" | "shareChannel">(
-    "menu",
-  );
+  const [modalMode, setModalMode] = useState<"menu" | "edit" | "shareChannel" | "banUser">("menu");
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const [banInput, setBanInput] = useState("");
 
   // 4. Get Theme
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
+
+  const creator = channelMetadata.creator;
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        console.log("fetching user");
+        const currentUsername = await AsyncStorage.getItem("currentUsername");
+        if (currentUsername && currentUsername == creator) {
+          setIsAdmin(true);
+        }
+      } catch (error) {
+        console.log("Error fetching data :", error);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  console.log(isAdmin);
 
   const handlePress = () => {
     router.push({
@@ -50,19 +71,46 @@ export default function ChannelCard({
   };
 
   const handleLongPress = () => {
-    setModalMode("menu");
-    setModalVisible(true);
+    if (isAdmin) {
+      setModalMode("menu");
+      setModalVisible(true);
+    } else {
+      Alert.alert("Authorization Error", "You are not an admin of this channel.", [
+        { text: "OK", onPress: () => console.log("OK Pressed") },
+      ]);
+    }
   };
 
   const handleModifyPress = () => {
     setModalMode("edit");
   };
 
-  const handleUpdateSubmit = async (data: {
-    name: string;
-    img: string;
-    theme: any;
-  }) => {
+  const handleBanPress = () => {
+    setBanInput(""); // Reset input
+    setModalMode("banUser");
+  };
+
+  const handleBanSubmit = async () => {
+    if (!banInput.trim()) {
+      Alert.alert("Error", "Please enter a username.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Calls the requested function signature
+      await api.banUserFromChannel(channelMetadata.id, banInput.trim());
+      Alert.alert("Success", `User ${banInput} has been banned.`);
+      setModalMode("menu");
+    } catch (error) {
+      console.error("Ban failed", error);
+      Alert.alert("Error", "Failed to ban user.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateSubmit = async (data: { name: string; img: string; theme: any }) => {
     setLoading(true);
     try {
       const updateData: ChannelUpdateMetadata = {
@@ -96,6 +144,102 @@ export default function ChannelCard({
     }
   };
 
+  const renderModalContent = () => {
+    switch (modalMode) {
+      case "menu":
+        return (
+          <>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Channel Options</Text>
+            <Text style={[styles.modalSubtitle, { color: theme.subText }]}>What do you want to do?</Text>
+
+            <Pressable
+              style={[styles.modalButton, styles.buttonModify]}
+              onPress={handleModifyPress}
+              disabled={!isAdmin}
+            >
+              <Text style={styles.textModify}>Modify Channel</Text>
+            </Pressable>
+
+            {/* NEW BAN BUTTON */}
+            <Pressable style={[styles.modalButton, styles.buttonBan]} onPress={handleBanPress} disabled={!isAdmin}>
+              <Text style={styles.textBan}>Ban User</Text>
+            </Pressable>
+
+            <Pressable style={[styles.modalButton, styles.buttonDelete]} onPress={handleDelete} disabled={!isAdmin}>
+              <Text style={styles.textDelete}>Delete Channel</Text>
+            </Pressable>
+
+            <Pressable style={[styles.modalButton, styles.buttonShare]} onPress={handleShare}>
+              <Text style={styles.textShare}>Share channel through link</Text>
+            </Pressable>
+
+            <Pressable style={[styles.modalButton, styles.buttonCancel]} onPress={() => setModalVisible(false)}>
+              <Text style={styles.textCancel}>Cancel</Text>
+            </Pressable>
+          </>
+        );
+
+      case "banUser":
+        return (
+          <>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Ban User</Text>
+            <Text style={[styles.modalSubtitle, { color: theme.subText, marginBottom: 15 }]}>
+              Enter the username to ban from this channel.
+            </Text>
+
+            <TextInput
+              style={[
+                styles.input,
+                { color: theme.text, borderColor: theme.inputBorder, backgroundColor: theme.inputBg },
+              ]}
+              placeholder="Username"
+              placeholderTextColor={theme.subText}
+              value={banInput}
+              onChangeText={setBanInput}
+              autoCapitalize="none"
+            />
+
+            <Pressable
+              style={[styles.modalButton, styles.buttonBan, { marginTop: 10 }]}
+              onPress={handleBanSubmit}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#D32F2F" /> : <Text style={styles.textBan}>Confirm Ban</Text>}
+            </Pressable>
+
+            <Pressable
+              style={[styles.modalButton, styles.buttonCancel]}
+              onPress={() => setModalMode("menu")}
+              disabled={loading}
+            >
+              <Text style={styles.textCancel}>Back</Text>
+            </Pressable>
+          </>
+        );
+
+      case "edit":
+        return (
+          <>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Channel</Text>
+            <ChannelForm
+              initialData={{
+                name: channelMetadata.name,
+                img: channelMetadata.img,
+                theme: channelMetadata.theme,
+              }}
+              onSubmit={handleUpdateSubmit}
+              submitLabel="Save Changes"
+              onCancel={() => setModalMode("menu")}
+              loading={loading}
+            />
+          </>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <View style={styles.cardWrapper}>
       <Modal
@@ -104,71 +248,12 @@ export default function ChannelCard({
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setModalVisible(false)}
-        >
+        <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
           <Pressable
             style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
             onPress={(e) => e.stopPropagation()}
           >
-            {modalMode === "menu" ? (
-              <>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>
-                  Channel Options
-                </Text>
-                <Text style={[styles.modalSubtitle, { color: theme.subText }]}>
-                  What do you want to do?
-                </Text>
-
-                <Pressable
-                  style={[styles.modalButton, styles.buttonModify]}
-                  onPress={handleModifyPress}
-                >
-                  <Text style={styles.textModify}>Modify Channel</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.modalButton, styles.buttonDelete]}
-                  onPress={handleDelete}
-                >
-                  <Text style={styles.textDelete}>Delete Channel</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.modalButton, styles.buttonShare]}
-                  onPress={handleShare}
-                >
-                  <Text style={styles.textShare}>
-                    Share channel through link
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.modalButton, styles.buttonCancel]}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Text style={styles.textCancel}>Cancel</Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>
-                  Edit Channel
-                </Text>
-                <ChannelForm
-                  initialData={{
-                    name: channelMetadata.name,
-                    img: channelMetadata.img,
-                    theme: channelMetadata.theme,
-                  }}
-                  onSubmit={handleUpdateSubmit}
-                  submitLabel="Save Changes"
-                  onCancel={() => setModalMode("menu")}
-                  loading={loading}
-                />
-              </>
-            )}
+            {renderModalContent()}
           </Pressable>
         </Pressable>
       </Modal>
@@ -186,22 +271,12 @@ export default function ChannelCard({
           pressed && { opacity: 0.7, backgroundColor: theme.inputBg }, // Replaces styles.cardPressed
         ]}
       >
-        <Image
-          source={{ uri: channelMetadata.img }}
-          style={styles.cardImage}
-          resizeMode="cover"
-        />
+        <Image source={{ uri: channelMetadata.img }} style={styles.cardImage} resizeMode="cover" />
         <View style={styles.textContainer}>
-          <Text
-            style={[styles.channelName, { color: theme.text }]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.channelName, { color: theme.text }]} numberOfLines={1}>
             {channelMetadata.name}
           </Text>
-          <Text
-            style={[styles.lastMessage, { color: theme.subText }]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.lastMessage, { color: theme.subText }]} numberOfLines={1}>
             Tap to view messages
           </Text>
         </View>
@@ -288,6 +363,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
+  modalButtonDisabled: {
+    width: "100%",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 10,
+    backgroundColor: "grey",
+    color: "gray",
+  },
   buttonModify: {
     backgroundColor: "#E3F2FD", // Kept specific status colors
   },
@@ -318,5 +402,22 @@ const styles = StyleSheet.create({
   textCancel: {
     color: "#999",
     fontSize: 14,
+  },
+  buttonBan: {
+    backgroundColor: "#FFF3E0", // Light Orange
+  },
+  textBan: {
+    color: "#E65100", // Dark Orange
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  // Added Input Style
+  input: {
+    width: "100%",
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    fontSize: 16,
+    marginBottom: 10,
   },
 });

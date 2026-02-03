@@ -1,60 +1,10 @@
-import { Theme } from "@/types/types";
+import { Theme, UserMetadata } from "@/types/types";
 
 type RGB = {
   r: number;
   g: number;
   b: number;
 };
-
-function componentToHex(c: number) {
-  var hex = c.toString(16);
-  return hex.length == 1 ? "0" + hex : hex;
-}
-
-function rgbToHex(r: number, g: number, b: number) {
-  return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
-}
-
-function hexToRgb(hex: string) {
-  var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
-      }
-    : null;
-}
-
-export function floorColor(color: string) {
-  var col = hexToRgb(color);
-  if (!col) return color;
-  var sat = 0.5;
-
-  var gray = col.r * 0.3086 + col.g * 0.6094 + col.b * 0.082;
-
-  col.r = Math.round(col.r * sat + gray * (1 - sat));
-  col.g = Math.round(col.g * sat + gray * (1 - sat));
-  col.b = Math.round(col.b * sat + gray * (1 - sat));
-
-  var out = rgbToHex(col.r, col.g, col.b);
-
-  return out;
-}
-
-export function floorThemeColors(theme: Theme): Theme {
-  let flooredTheme = {
-    primary_color: floorColor(theme.primary_color),
-    primary_color_dark: floorColor(theme.primary_color_dark),
-    accent_color: floorColor(theme.accent_color),
-    text_color: floorColor(theme.text_color),
-    accent_text_color: floorColor(theme.accent_text_color),
-  };
-
-  console.log(JSON.stringify(theme, null, 4));
-  console.log(JSON.stringify(flooredTheme, null, 4));
-  return flooredTheme;
-}
 
 export function isImgUrl(url: string) {
   return /\.(jpg|jpeg|png|webp|avif|gif)$/.test(url);
@@ -216,6 +166,7 @@ export function optimizeThemeForReadability(originalTheme: Theme): Theme {
   let text = ensureContrast(pDark, originalTheme.text_color);
   let accentText = ensureContrast(pDark, originalTheme.accent_text_color);
 
+  // what ?
   // Step C: Edge Case - The Input Box
   // In your UI, 'text_color' is ALSO used inside 'primary_color' (the input box).
   // If fixing it for the main background broke it for the input box, we prioritize the main chat.
@@ -236,3 +187,23 @@ export function optimizeThemeForReadability(originalTheme: Theme): Theme {
     accent_text_color: accentText,
   };
 }
+
+export function formatTime(timestamp: number) {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+export function getUserFromName(members: UserMetadata[], username: string) {
+  return members.find((member) => member.username == username);
+}
+
+export const isSameDay = (d1: number | string, d2: number | string) => {
+  const date1 = new Date(d1);
+  const date2 = new Date(d2);
+
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+};

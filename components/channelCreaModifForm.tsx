@@ -17,18 +17,10 @@ import {
   View,
 } from "react-native";
 import { runOnJS } from "react-native-reanimated";
-import ColorPicker, {
-  HueSlider,
-  Panel1,
-  PreviewText,
-  Swatches,
-} from "reanimated-color-picker";
+import ColorPicker, { HueSlider, Panel1, PreviewText, Swatches } from "reanimated-color-picker";
 
 // Enable LayoutAnimation for Android
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -99,9 +91,7 @@ export default function ChannelForm({
 }: ChannelFormProps) {
   const [name, setName] = useState(initialData?.name || "");
   const [img, setImg] = useState(initialData?.img || "");
-  const [themeData, setThemeData] = useState<Theme>(
-    initialData?.theme || PRESETS[0].theme
-  );
+  const [themeData, setThemeData] = useState<Theme>(initialData?.theme || PRESETS[0].theme);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -111,9 +101,7 @@ export default function ChannelForm({
 
   // --- Picker State ---
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [activeColorKey, setActiveColorKey] = useState<keyof Theme | null>(
-    null
-  );
+  const [activeColorKey, setActiveColorKey] = useState<keyof Theme | null>(null);
   const [tempColor, setTempColor] = useState("#FFFFFF");
 
   const handlePresetSelect = (newTheme: Theme) => {
@@ -160,21 +148,10 @@ export default function ChannelForm({
       {/* --- Visual Color Picker Modal --- */}
       <Modal visible={pickerVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.pickerContainer,
-              { backgroundColor: appTheme.cardBg },
-            ]}
-          >
-            <Text style={[styles.pickerTitle, { color: appTheme.text }]}>
-              Select Color
-            </Text>
+          <View style={[styles.pickerContainer, { backgroundColor: appTheme.cardBg }]}>
+            <Text style={[styles.pickerTitle, { color: appTheme.text }]}>Select Color</Text>
 
-            <ColorPicker
-              style={{ width: "100%", gap: 20 }}
-              value={tempColor}
-              onComplete={onColorSelect}
-            >
+            <ColorPicker style={{ width: "100%", gap: 20 }} value={tempColor} onComplete={onColorSelect}>
               <PreviewText
                 style={{
                   color: appTheme.text,
@@ -188,10 +165,7 @@ export default function ChannelForm({
             </ColorPicker>
 
             <Pressable
-              style={[
-                styles.closePickerButton,
-                { backgroundColor: appTheme.primary },
-              ]}
+              style={[styles.closePickerButton, { backgroundColor: appTheme.primary }]}
               onPress={() => setPickerVisible(false)}
             >
               <Text style={styles.closePickerText}>Done</Text>
@@ -201,9 +175,7 @@ export default function ChannelForm({
       </Modal>
 
       {/* --- Inputs --- */}
-      <Text style={[styles.label, { color: appTheme.subText }]}>
-        Channel Name
-      </Text>
+      <Text style={[styles.label, { color: appTheme.subText }]}>Channel Name</Text>
       <TextInput
         style={[
           styles.input,
@@ -219,9 +191,7 @@ export default function ChannelForm({
         onChangeText={setName}
       />
 
-      <Text style={[styles.label, { color: appTheme.subText }]}>
-        Channel Image URL
-      </Text>
+      <Text style={[styles.label, { color: appTheme.subText }]}>Channel Image URL</Text>
       <TextInput
         style={[
           styles.input,
@@ -238,9 +208,7 @@ export default function ChannelForm({
         autoCapitalize="none"
       />
 
-      <Text style={[styles.sectionTitle, { color: appTheme.text }]}>
-        Channel Theme
-      </Text>
+      <Text style={[styles.sectionTitle, { color: appTheme.text }]}>Channel Theme</Text>
 
       {/* Presets */}
       <View style={styles.presetsContainer}>
@@ -270,12 +238,7 @@ export default function ChannelForm({
 
       {/* Advanced Inputs */}
       {showAdvanced && (
-        <View
-          style={[
-            styles.advancedContainer,
-            { backgroundColor: appTheme.inputBg },
-          ]}
-        >
+        <View style={[styles.advancedContainer, { backgroundColor: appTheme.inputBg }]}>
           {Object.keys(themeData).map((key) => {
             const fieldKey = key as keyof Theme;
             return (
@@ -294,9 +257,7 @@ export default function ChannelForm({
                 </Pressable>
 
                 <View style={{ flex: 1 }}>
-                  <Text
-                    style={[styles.colorLabel, { color: appTheme.subText }]}
-                  >
+                  <Text style={[styles.colorLabel, { color: appTheme.subText }]}>
                     {fieldKey.replace(/_/g, " ").toUpperCase()}
                   </Text>
                   <TextInput
@@ -309,9 +270,7 @@ export default function ChannelForm({
                       },
                     ]}
                     value={themeData[fieldKey]}
-                    onChangeText={(text) =>
-                      handleManualTextChange(fieldKey, text)
-                    }
+                    onChangeText={(text) => handleManualTextChange(fieldKey, text)}
                     autoCapitalize="none"
                   />
                 </View>
@@ -325,39 +284,23 @@ export default function ChannelForm({
       <View style={styles.buttonRow}>
         {onCancel && (
           <Pressable
-            style={[
-              styles.button,
-              styles.buttonCancel,
-              { borderColor: appTheme.inputBorder },
-            ]}
+            style={[styles.button, styles.buttonCancel, { borderColor: appTheme.inputBorder }]}
             onPress={onCancel}
             disabled={loading}
           >
-            <Text
-              style={[styles.buttonCancelText, { color: appTheme.subText }]}
-            >
-              Cancel
-            </Text>
+            <Text style={[styles.buttonCancelText, { color: appTheme.subText }]}>Cancel</Text>
           </Pressable>
         )}
 
         <Pressable
-          style={[
-            styles.button,
-            styles.buttonSubmit,
-            { backgroundColor: appTheme.primary },
-          ]}
+          style={[styles.button, styles.buttonSubmit, { backgroundColor: appTheme.primary }]}
           onPress={handleSubmit}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color={appTheme.onPrimary} />
           ) : (
-            <Text
-              style={[styles.buttonSubmitText, { color: appTheme.onPrimary }]}
-            >
-              {submitLabel}
-            </Text>
+            <Text style={[styles.buttonSubmitText, { color: appTheme.onPrimary }]}>{submitLabel}</Text>
           )}
         </Pressable>
       </View>
