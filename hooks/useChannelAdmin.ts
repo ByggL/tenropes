@@ -32,7 +32,6 @@ export function useChannelAdmin(channel: ChannelMetadata | null) {
   const handleShowQrCode = useCallback(async () => {
     if (!channel) return;
     setQrModalVisible(true);
-    console.log("isQrModalVisible:", isQrModalVisible);
 
     if (qrInviteLink) return;
 
@@ -42,7 +41,6 @@ export function useChannelAdmin(channel: ChannelMetadata | null) {
       console.log("Generated QR invite link:", link);
       setQrInviteLink(link);
       setQrModalVisible(true);
-      console.log("isQrModalVisible:", isQrModalVisible);
     } catch (error) {
       console.error("Error generating QR code:", error);
       Alert.alert("Error", "Could not generate QR code.");
@@ -50,8 +48,6 @@ export function useChannelAdmin(channel: ChannelMetadata | null) {
     } finally {
       setIsLoadingQr(false);
     }
-
-    console.log("isQrModalVisible:", isQrModalVisible);
   }, [channel?.id]);
 
   const handleShareInvite = useCallback(async () => {
