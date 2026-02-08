@@ -4,7 +4,7 @@ export async function storeJwt(jwtString: string): Promise<void> {
   try {
     await AsyncStorage.setItem(
       "jwt_token",
-      JSON.stringify({ token: jwtString, timestamp: Date.now() })
+      JSON.stringify({ token: jwtString, timestamp: Date.now() }),
     );
   } catch (e) {
     throw new Error("Failed to store JWT token");
@@ -21,6 +21,6 @@ export async function getJwt(): Promise<{
       return JSON.parse(value);
     } else return null;
   } catch (e) {
-    throw new Error("Failed ton retrieve JWT token");
+    throw new Error("Failed to retrieve JWT token");
   }
 }

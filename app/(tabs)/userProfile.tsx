@@ -49,7 +49,6 @@ export default function UserProfilePage() {
           const currentUsername = await AsyncStorage.getItem("currentUsername");
           if (currentUsername) {
             const data: any = await api.getUserData([currentUsername]);
-
             if (data && data[0]) {
               setUserName(currentUsername);
               setDisplayName(data[0].display_name || "");

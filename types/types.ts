@@ -1,6 +1,6 @@
 export type LoginResponse = {
-  token: string;
-  admin: boolean;
+  access_token: string;
+  refresh_token: string;
 };
 
 export type ExtendSessionResponse = LoginResponse;
@@ -63,9 +63,21 @@ export type MessageMetadata = {
   };
 };
 
+export type ModifiedMessageMetadata = {
+  author: {
+    id: number;
+    username: string;
+  };
+  authorId: number;
+  channel_id: number;
+  content: string;
+  createdAt: string;
+  id: number;
+  type: string;
+};
 export type NewMessageData = {
   type: string;
-  value: string;
+  content: string;
 };
 
 export type NotificationData = {

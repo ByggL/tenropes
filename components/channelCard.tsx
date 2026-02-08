@@ -27,10 +27,15 @@ interface ChannelCardProps {
   onUpdate: () => void;
 }
 
-export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardProps) {
+export default function ChannelCard({
+  channelMetadata,
+  onUpdate,
+}: ChannelCardProps) {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState<"menu" | "edit" | "shareChannel" | "banUser">("menu");
+  const [modalMode, setModalMode] = useState<
+    "menu" | "edit" | "shareChannel" | "banUser"
+  >("menu");
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -45,7 +50,7 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        console.log("fetching user");
+        // console.log("fetching user");
         const currentUsername = await AsyncStorage.getItem("currentUsername");
         if (currentUsername && currentUsername == creator) {
           setIsAdmin(true);
@@ -58,7 +63,7 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
     loadUserData();
   }, []);
 
-  console.log(isAdmin);
+  // console.log(isAdmin);
 
   const handlePress = () => {
     router.push({
@@ -75,9 +80,11 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
       setModalMode("menu");
       setModalVisible(true);
     } else {
-      Alert.alert("Authorization Error", "You are not an admin of this channel.", [
-        { text: "OK", onPress: () => console.log("OK Pressed") },
-      ]);
+      Alert.alert(
+        "Authorization Error",
+        "You are not an admin of this channel.",
+        [{ text: "OK", onPress: () => console.log("OK Pressed") }],
+      );
     }
   };
 
@@ -110,7 +117,11 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
     }
   };
 
-  const handleUpdateSubmit = async (data: { name: string; img: string; theme: any }) => {
+  const handleUpdateSubmit = async (data: {
+    name: string;
+    img: string;
+    theme: any;
+  }) => {
     setLoading(true);
     try {
       const updateData: ChannelUpdateMetadata = {
@@ -149,8 +160,12 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
       case "menu":
         return (
           <>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Channel Options</Text>
-            <Text style={[styles.modalSubtitle, { color: theme.subText }]}>What do you want to do?</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              Channel Options
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: theme.subText }]}>
+              What do you want to do?
+            </Text>
 
             <Pressable
               style={[styles.modalButton, styles.buttonModify]}
@@ -161,19 +176,33 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
             </Pressable>
 
             {/* NEW BAN BUTTON */}
-            <Pressable style={[styles.modalButton, styles.buttonBan]} onPress={handleBanPress} disabled={!isAdmin}>
+            <Pressable
+              style={[styles.modalButton, styles.buttonBan]}
+              onPress={handleBanPress}
+              disabled={!isAdmin}
+            >
               <Text style={styles.textBan}>Ban User</Text>
             </Pressable>
 
-            <Pressable style={[styles.modalButton, styles.buttonDelete]} onPress={handleDelete} disabled={!isAdmin}>
+            <Pressable
+              style={[styles.modalButton, styles.buttonDelete]}
+              onPress={handleDelete}
+              disabled={!isAdmin}
+            >
               <Text style={styles.textDelete}>Delete Channel</Text>
             </Pressable>
 
-            <Pressable style={[styles.modalButton, styles.buttonShare]} onPress={handleShare}>
+            <Pressable
+              style={[styles.modalButton, styles.buttonShare]}
+              onPress={handleShare}
+            >
               <Text style={styles.textShare}>Share channel through link</Text>
             </Pressable>
 
-            <Pressable style={[styles.modalButton, styles.buttonCancel]} onPress={() => setModalVisible(false)}>
+            <Pressable
+              style={[styles.modalButton, styles.buttonCancel]}
+              onPress={() => setModalVisible(false)}
+            >
               <Text style={styles.textCancel}>Cancel</Text>
             </Pressable>
           </>
@@ -182,15 +211,26 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
       case "banUser":
         return (
           <>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Ban User</Text>
-            <Text style={[styles.modalSubtitle, { color: theme.subText, marginBottom: 15 }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              Ban User
+            </Text>
+            <Text
+              style={[
+                styles.modalSubtitle,
+                { color: theme.subText, marginBottom: 15 },
+              ]}
+            >
               Enter the username to ban from this channel.
             </Text>
 
             <TextInput
               style={[
                 styles.input,
-                { color: theme.text, borderColor: theme.inputBorder, backgroundColor: theme.inputBg },
+                {
+                  color: theme.text,
+                  borderColor: theme.inputBorder,
+                  backgroundColor: theme.inputBg,
+                },
               ]}
               placeholder="Username"
               placeholderTextColor={theme.subText}
@@ -204,7 +244,11 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
               onPress={handleBanSubmit}
               disabled={loading}
             >
-              {loading ? <ActivityIndicator color="#D32F2F" /> : <Text style={styles.textBan}>Confirm Ban</Text>}
+              {loading ? (
+                <ActivityIndicator color="#D32F2F" />
+              ) : (
+                <Text style={styles.textBan}>Confirm Ban</Text>
+              )}
             </Pressable>
 
             <Pressable
@@ -220,7 +264,9 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
       case "edit":
         return (
           <>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Channel</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              Edit Channel
+            </Text>
             <ChannelForm
               initialData={{
                 name: channelMetadata.name,
@@ -248,7 +294,10 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setModalVisible(false)}
+        >
           <Pressable
             style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
             onPress={(e) => e.stopPropagation()}
@@ -271,12 +320,22 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
           pressed && { opacity: 0.7, backgroundColor: theme.inputBg }, // Replaces styles.cardPressed
         ]}
       >
-        <Image source={{ uri: channelMetadata.img }} style={styles.cardImage} resizeMode="cover" />
+        <Image
+          source={{ uri: channelMetadata.img }}
+          style={styles.cardImage}
+          resizeMode="cover"
+        />
         <View style={styles.textContainer}>
-          <Text style={[styles.channelName, { color: theme.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.channelName, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {channelMetadata.name}
           </Text>
-          <Text style={[styles.lastMessage, { color: theme.subText }]} numberOfLines={1}>
+          <Text
+            style={[styles.lastMessage, { color: theme.subText }]}
+            numberOfLines={1}
+          >
             Tap to view messages
           </Text>
         </View>

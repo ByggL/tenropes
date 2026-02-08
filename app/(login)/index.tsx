@@ -136,6 +136,7 @@ export default function LoginScreen() {
           secureTextEntry
           placeholderTextColor="#999"
           editable={!loading}
+          autoCapitalize="none"
         />
 
         {/* Error Message */}

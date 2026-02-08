@@ -1,11 +1,18 @@
-import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
+import {
+  ChannelMetadata,
+  ModifiedMessageMetadata,
+  UserMetadata,
+} from "@/types/types";
 import api from "@/utils/api";
 import { formatImgUrl, isImgUrl } from "@/utils/utils";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 
-export function useChannelMessages(channel: ChannelMetadata, setMembers: React.Dispatch<React.SetStateAction<UserMetadata[]>>) {
-  const [messages, setMessages] = useState<MessageMetadata[]>([]);
+export function useChannelMessages(
+  channel: ChannelMetadata,
+  setMembers: React.Dispatch<React.SetStateAction<UserMetadata[]>>,
+) {
+  const [messages, setMessages] = useState<ModifiedMessageMetadata[]>([]);
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const [batchOffset, setBatchOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -17,17 +24,20 @@ export function useChannelMessages(channel: ChannelMetadata, setMembers: React.D
       console.log("Refreshing channel " + channel.id);
 
       setBatchOffset(0);
-      setHasMore(true);
+      setHasMore(false);
       setIsFetchingHistory(false);
 
       api.getMessages(channel.id, 0).then((initialMessages) => {
         // inverted because we want newest message at the start of the array
         setMessages(initialMessages.reverse());
+        console.log(initialMessages);
       });
 
       api.getUserData(channel.users).then((result) => setMembers(result));
 
-      const socket = new WebSocket(`https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`);
+      const socket = new WebSocket(
+        `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`,
+      );
 
       socket.onopen = () => {
         console.log("Connected!");
@@ -81,7 +91,7 @@ export function useChannelMessages(channel: ChannelMetadata, setMembers: React.D
     try {
       await api.sendMessage(channel.id, {
         type: isImageLink ? "Image" : "Text",
-        value: isImageLink ? formatImgUrl(content) : content,
+        content: isImageLink ? formatImgUrl(content) : content,
       });
     } catch (error) {
       console.error("Failed to send message", error);

@@ -1,18 +1,33 @@
-import { ChannelMetadata, MessageMetadata, UserMetadata } from "@/types/types";
-import { formatTime, getUserFromName, isSameDay, optimizeThemeForReadability } from "@/utils/utils";
+import {
+  ChannelMetadata,
+  ModifiedMessageMetadata,
+  UserMetadata,
+} from "@/types/types";
+import {
+  formatTime,
+  getUserFromName,
+  isSameDay,
+  optimizeThemeForReadability,
+} from "@/utils/utils";
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import ImageAttachment from "./ImageAttachment";
 
 type MessageInputProps = {
-  item: MessageMetadata;
+  item: ModifiedMessageMetadata;
   index: number;
   channel: ChannelMetadata;
-  messages: MessageMetadata[];
+  messages: ModifiedMessageMetadata[];
   members: UserMetadata[];
 };
 
-export default function MessageInput({ item, index, channel, messages, members }: MessageInputProps) {
+export default function MessageItem({
+  item,
+  index,
+  channel,
+  messages,
+  members,
+}: MessageInputProps) {
   const theme = channel?.theme
     ? optimizeThemeForReadability(channel.theme)
     : {
@@ -24,13 +39,18 @@ export default function MessageInput({ item, index, channel, messages, members }
       };
 
   const olderMessage = messages[index + 1];
-  const isSameAuthor = olderMessage && olderMessage.author === item.author;
+  const isSameAuthor =
+    olderMessage && olderMessage.author.username === item.author.username;
 
-  const showDateSeparator = !olderMessage || !isSameDay(item.timestamp, olderMessage.timestamp);
+  const datetime = new Date(item.createdAt);
+  const timestamp = datetime.getTime();
+
+  const showDateSeparator =
+    !olderMessage || !isSameDay(item.createdAt, olderMessage.createdAt);
 
   // Use a default avatar if none exists
   const avatarUrl = `https://pixelcorner.fr/cdn/shop/articles/le-nyan-cat-618805.webp?v=1710261022&width=2048`;
-  const author = getUserFromName(members, item.author);
+  const author = getUserFromName(members, item.author.username);
   const senderAvatar = () => {
     return author?.img || avatarUrl;
   };
@@ -39,8 +59,13 @@ export default function MessageInput({ item, index, channel, messages, members }
     <View>
       {showDateSeparator && (
         <View style={styles.dateSeparator}>
-          <Text style={[styles.dateSeparatorText, { color: theme.accent_text_color }]}>
-            {new Date(item.timestamp).toLocaleDateString(undefined, {
+          <Text
+            style={[
+              styles.dateSeparatorText,
+              { color: theme.accent_text_color },
+            ]}
+          >
+            {new Date(item.createdAt).toLocaleDateString(undefined, {
               weekday: "short",
               month: "short",
               day: "numeric",
@@ -49,7 +74,12 @@ export default function MessageInput({ item, index, channel, messages, members }
         </View>
       )}
 
-      <View style={[styles.messageContainer, isSameAuthor ? styles.messageContainerCompact : null]}>
+      <View
+        style={[
+          styles.messageContainer,
+          isSameAuthor ? styles.messageContainerCompact : null,
+        ]}
+      >
         {!isSameAuthor || showDateSeparator ? (
           <Image source={{ uri: senderAvatar() }} style={styles.avatar} />
         ) : (
@@ -60,17 +90,28 @@ export default function MessageInput({ item, index, channel, messages, members }
           {(!isSameAuthor || showDateSeparator) && (
             <View style={styles.headerContent}>
               <Text style={[styles.authorName, { color: theme.text_color }]}>
-                {author?.display_name || author?.username || item.author}
+                {author?.username || author?.username || item.author.username}
               </Text>
-              <Text style={[styles.timestamp, { color: theme.accent_text_color }]}>{formatTime(item.timestamp)}</Text>
+              <Text
+                style={[styles.timestamp, { color: theme.accent_text_color }]}
+              >
+                {formatTime(timestamp)}
+              </Text>
             </View>
           )}
 
-          {item.content.type == "Text" ? (
-            <Text style={[styles.messageText, { color: theme.accent_text_color }]}>{item.content.value}</Text>
+          {item.type == "Text" ? (
+            <Text
+              style={[styles.messageText, { color: theme.accent_text_color }]}
+            >
+              {item.content}
+            </Text>
           ) : (
             // <Image source={{ uri: item.content.value }} style={styles.imageAttachment} resizeMode="cover" />
-            <ImageAttachment uri={item.content.value} baseStyle={styles.imageAttachment} />
+            <ImageAttachment
+              uri={item.content}
+              baseStyle={styles.imageAttachment}
+            />
           )}
         </View>
       </View>

@@ -1,7 +1,6 @@
 // utils/notifications.ts
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
-import api from "./api";
 
 let notificationsRefused = false;
 let activeChannelId: string | null = null;
@@ -17,7 +16,9 @@ export const resetNotificationConfig = () => {
 export const pullAndPostToken = async () => {
   Notifications.setNotificationHandler(null as any);
 
-  const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+  const projectId =
+    Constants?.expoConfig?.extra?.eas?.projectId ??
+    Constants?.easConfig?.projectId;
 
   if (!projectId) {
     console.error("Problem with project id");
@@ -30,7 +31,7 @@ export const pullAndPostToken = async () => {
     });
     const pushTokenString = tokenRequest.data;
 
-    await api.postPushToken(pushTokenString);
+    // await api.postPushToken(pushTokenString);
 
     Notifications.setNotificationHandler({
       handleNotification: async (notification) => {
