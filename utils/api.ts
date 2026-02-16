@@ -14,7 +14,9 @@ import { getJwt, storeJwt } from "./jwt";
 class API {
   private readonly client: AxiosInstance;
   // Ensure this matches your NestJS main.ts port (usually 3000)
-  private readonly baseUrl = "http://192.168.1.155:3000";
+  private readonly baseUrl = __DEV__
+    ? "http://192.168.1.155:3000" // Ton API locale
+    : "https://tenropes.exemple.com"; // Ton API de Prod;
 
   public jwtToken: string = "";
 
