@@ -9,7 +9,7 @@ import {
   UserMetadata,
 } from "@/types/types";
 import axios, { AxiosInstance } from "axios";
-import { getJwt, storeJwt } from "./jwt";
+import { clearJwt, getJwt, storeJwt } from "./jwt";
 
 class API {
   private readonly client: AxiosInstance;
@@ -26,36 +26,64 @@ class API {
     });
 
     this.client.interceptors.request.use(async (config) => {
-      // Set content type for requests with a body
       const methodsWithBody = ["post", "put", "patch"];
       if (config.method && methodsWithBody.includes(config.method)) {
         config.headers["Content-Type"] = "application/json";
       }
 
-      const token = await getJwt();
-      if (token) this.jwtToken = token.token;
+      const tokens = await getJwt();
 
-      // Add auth token for protected routes AND user routes
-      // The backend protects /user and /protected/channels
-      if (
+      // If the route is /auth/refresh, the backend requires the Refresh Token
+      if (config.url?.includes("/auth/refresh")) {
+        if (tokens?.refreshToken) {
+          config.headers.Authorization = `Bearer ${tokens.refreshToken}`;
+        }
+      }
+      // For all other protected routes, use the Access Token
+      else if (
         config.url?.includes("/protected/") ||
         config.url?.includes("/user") ||
-        config.url?.includes("/auth/refresh")
+        config.url?.includes("/auth/logout")
       ) {
-        if (token) {
-          // console.log(token.token);
-          config.headers.Authorization = `Bearer ${token.token}`;
-
-          // Note: For /auth/refresh, your backend strategy likely requires
-          // the Refresh Token in the Authorization header.
-          // If your 'token' object has a specific refreshToken property, use that instead:
-          // if (config.url.includes("/auth/refresh")) {
-          //    config.headers.Authorization = `Bearer ${token.refreshToken}`;
-          // }
+        if (tokens?.accessToken) {
+          this.jwtToken = tokens.accessToken;
+          config.headers.Authorization = `Bearer ${tokens.accessToken}`;
         }
       }
       return config;
     });
+
+    // Add a RESPONSE interceptor for automatic token refresh
+    this.client.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        // If 401 Unauthorized and we haven't already retried
+        if (
+          error.response?.status === 401 &&
+          !originalRequest._retry &&
+          !originalRequest.url.includes("/auth/login")
+        ) {
+          originalRequest._retry = true;
+
+          try {
+            // Call the refresh token endpoint
+            const refreshResult = await this.extendSession();
+
+            // Update the header on the failed request and retry it
+            originalRequest.headers.Authorization = `Bearer ${refreshResult.access_token}`;
+            return this.client(originalRequest);
+          } catch (refreshError) {
+            // If refresh fails (e.g., refresh token expired after 7 days), clear tokens
+            await clearJwt();
+            // Optional: You could emit an event here to force the UI back to the login screen
+            return Promise.reject(refreshError);
+          }
+        }
+        return Promise.reject(error);
+      },
+    );
   }
 
   ///////////////////////////////////////
@@ -76,7 +104,7 @@ class API {
       console.log("Login successful");
       const { data } = response;
       this.jwtToken = data.access_token;
-      await storeJwt(data.access_token);
+      await storeJwt(data.access_token, data.refresh_token);
       return data;
     } catch (error: any) {
       console.error(
@@ -101,13 +129,22 @@ class API {
 
       console.log("Session extension successful");
       const { data } = response;
-      await storeJwt(data.access_token);
+      await storeJwt(data.access_token, data.refresh_token);
       return data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Session extension failed, invalid token");
       }
       throw new Error("Session extension failed");
+    }
+  }
+
+  public async logout(): Promise<void> {
+    try {
+      await this.client.post("/auth/logout", {});
+      await clearJwt();
+    } catch (error) {
+      console.error("Logout failed", error);
     }
   }
 
@@ -119,19 +156,28 @@ class API {
   // It does not seem to support fetching a list of other users by ID array yet.
   public async getUserData(users: string[]): Promise<UserMetadata[]> {
     try {
-      // Backend: UsersController @Get('meta') -> Returns single user profile
-      // Current implementation fetches the logged-in user's profile.
-      // If you need other users, you must update UsersController.
-      const url = `/user/meta`;
-      const response = await this.client.get<UserMetadata | UserMetadata[]>(
-        url,
-      );
+      // Send the array of usernames to our new backend endpoint
+      const response = await this.client.post<UserMetadata[]>("/user/batch", {
+        usernames: users,
+      });
 
-      console.log("Retrieved user data");
-      // Adapting response to array for compatibility
-      return Array.isArray(response.data) ? response.data : [response.data];
+      console.log("Retrieved users data successfully");
+      return response.data;
     } catch (error) {
       throw new Error(error as string);
+    }
+  }
+
+  public async getMyProfile(): Promise<UserMetadata> {
+    try {
+      // Backend: UsersController @Get('meta')
+      // This endpoint extracts your ID from the JWT token and returns your User object
+      const response = await this.client.get<UserMetadata>("/user/meta");
+
+      console.log("Retrieved personal profile");
+      return response.data;
+    } catch (error) {
+      throw new Error("Failed to fetch my profile: " + error);
     }
   }
 
@@ -145,6 +191,7 @@ class API {
         newUserData,
       );
       console.log("User data modification successful");
+      console.log(response.data);
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {

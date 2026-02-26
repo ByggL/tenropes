@@ -34,20 +34,28 @@ export default function LoginScreen() {
 
   const checkToken = async () => {
     try {
-      // Fetch the stored object
-      const data: any = await getJwt();
-      const { token, timestamp } = data;
-      // console.log("oupsi");
-      if (token && timestamp) {
-        const now = Date.now();
-        const threeHoursInMs = 3 * 60 * 60 * 1000;
+      const data = await getJwt();
 
-        // Check if token is less than 3 hours old
-        if (now - timestamp < threeHoursInMs) {
+      if (data?.refreshToken && data?.timestamp) {
+        const now = Date.now();
+        // 7 days in milliseconds
+        const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+
+        // Check if refresh token is still valid
+        if (now - data.timestamp < sevenDaysInMs) {
           console.log("Valid session found, redirecting...");
+          // Try to refresh the token immediately just to be safe
+          try {
+            await api.extendSession();
+          } catch (e) {
+            // If refresh fails, stay on login screen
+            setIsCheckingToken(false);
+            return;
+          }
+
           router.replace({
             pathname: "/(tabs)/channelSelectionPage",
-            params: { token: token }, // Transmitting the token
+            params: { token: data.accessToken },
           });
           return;
         }
@@ -55,11 +63,9 @@ export default function LoginScreen() {
     } catch (error) {
       console.log("Error checking token:", error);
     } finally {
-      // Stop checking and show login form if no valid token found
       setIsCheckingToken(false);
     }
   };
-
   useEffect(() => {
     checkToken();
   }, []);
