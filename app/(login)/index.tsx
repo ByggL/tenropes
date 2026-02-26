@@ -22,6 +22,8 @@ import {
 
 // Assuming you are in app/(login)/loginPage.tsx
 export default function LoginScreen() {
+  console.log("Start opf SESSION");
+
   const router = useRouter();
 
   const [username, setUsername] = useState("");
@@ -46,7 +48,9 @@ export default function LoginScreen() {
           console.log("Valid session found, redirecting...");
           // Try to refresh the token immediately just to be safe
           try {
+            console.log("yes?");
             await api.extendSession();
+            console.log("yes?");
           } catch (e) {
             // If refresh fails, stay on login screen
             setIsCheckingToken(false);

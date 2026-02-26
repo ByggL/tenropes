@@ -37,7 +37,7 @@ export function useChannelMessages(
       api.getUserData(usernamesToFetch).then((result) => setMembers(result));
       // --- SOCKET.IO IMPLEMENTATION ---
 
-      const socket = io("http://192.168.1.155:3000", {
+      const socket = io("http://192.168.1.42:3000", {
         auth: {
           token: api.jwtToken,
         },

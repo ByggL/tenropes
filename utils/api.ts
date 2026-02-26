@@ -15,7 +15,7 @@ class API {
   private readonly client: AxiosInstance;
   // Ensure this matches your NestJS main.ts port (usually 3000)
   private readonly baseUrl = __DEV__
-    ? "http://192.168.1.155:3000" // Ton API locale
+    ? "http://192.168.1.42:3000" // Ton API locale
     : "https://tenropes.exemple.com"; // Ton API de Prod;
 
   public jwtToken: string = "";
@@ -43,7 +43,8 @@ class API {
       else if (
         config.url?.includes("/protected/") ||
         config.url?.includes("/user") ||
-        config.url?.includes("/auth/logout")
+        config.url?.includes("/auth/logout") ||
+        config.url?.includes("/auth/refresh")
       ) {
         if (tokens?.accessToken) {
           this.jwtToken = tokens.accessToken;
@@ -135,6 +136,8 @@ class API {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Session extension failed, invalid token");
       }
+      console.log("?");
+
       throw new Error("Session extension failed");
     }
   }
