@@ -1,14 +1,14 @@
 const { defineConfig } = require("eslint/config");
 const expoConfig = require("eslint-config-expo/flat");
-const eslintPluginPrettierRecommended = require("eslint-plugin-prettier/recommended");
+// const eslintPluginPrettierRecommended = require("eslint-plugin-prettier/recommended");
 
 module.exports = defineConfig([
   expoConfig,
-  eslintPluginPrettierRecommended,
+  // eslintPluginPrettierRecommended,
   {
     ignores: ["dist/*"],
-    rules: {
-      "prettier/prettier": ["error", { singleQuote: false }],
-    },
+    // rules: {
+    //   "prettier/prettier": ["error", { singleQuote: false }],
+    // },
   },
 ]);
