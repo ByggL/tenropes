@@ -70,6 +70,7 @@ export default function LoginScreen() {
       setIsCheckingToken(false);
     }
   };
+  // yes i test
   useEffect(() => {
     checkToken();
   }, []);
