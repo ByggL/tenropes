@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "test:cov": "jest --coverage -passWithNoTests",
+    "test:cov": "jest --coverage --passWithNoTests",
     "format": "prettier --write \"{app,components,constants,hooks,types,utils,__tests__}/**/*.{tsx,ts,js}\""
   },
   "dependencies": {
@@ -63,6 +63,12 @@
       "!**/babel.config.js",
       "!**/expo-env.d.ts",
       "!**/.expo/**"
+    ],
+    "testEnvironment": "node",
+    "coverageReporters": [
+      "text",
+      "text-summary",
+      "json-summary"
     ]
   },
   "private": true
