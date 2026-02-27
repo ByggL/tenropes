@@ -1,18 +1,23 @@
+// utils/jwt.ts
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export async function storeJwt(jwtString: string): Promise<void> {
+export async function storeJwt(
+  accessToken: string,
+  refreshToken: string,
+): Promise<void> {
   try {
     await AsyncStorage.setItem(
       "jwt_token",
-      JSON.stringify({ token: jwtString, timestamp: Date.now() }),
+      JSON.stringify({ accessToken, refreshToken, timestamp: Date.now() }),
     );
   } catch (e) {
-    throw new Error("Failed to store JWT token");
+    throw new Error("Failed to store JWT tokens");
   }
 }
 
 export async function getJwt(): Promise<{
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   timestamp: number;
 } | null> {
   try {
@@ -21,6 +26,10 @@ export async function getJwt(): Promise<{
       return JSON.parse(value);
     } else return null;
   } catch (e) {
-    throw new Error("Failed to retrieve JWT token");
+    throw new Error("Failed to retrieve JWT tokens");
   }
+}
+
+export async function clearJwt(): Promise<void> {
+  await AsyncStorage.removeItem("jwt_token");
 }
