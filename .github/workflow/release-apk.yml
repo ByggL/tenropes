@@ -3,7 +3,7 @@ name: Build and Deploy APK
 on:
   push:
     branches:
-      - 'release/v*.*.*'
+      - 'release/v*'
 
 jobs:
   build-and-release:
