@@ -127,6 +127,8 @@ export default function LoginScreen() {
         <Text style={styles.title}>Welcome Back </Text>
         <Image source={logo} style={styles.image} />
         {/* Email Input */}
+        <Text>Your current single server: {api.baseurl}</Text>
+
         <TextInput
           style={styles.input}
           placeholder="Username"
@@ -137,7 +139,6 @@ export default function LoginScreen() {
           placeholderTextColor="#999"
           editable={!loading}
         />
-
         {/* Password Input */}
         <TextInput
           style={styles.input}
