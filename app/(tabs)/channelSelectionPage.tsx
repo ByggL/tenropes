@@ -3,13 +3,7 @@ import { Text, View } from "@/components/Themed"; // 1. Use Themed components
 import Colors from "@/constants/Colors"; // 2. Import Colors
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  SafeAreaView,
-  StyleSheet,
-  useColorScheme,
-} from "react-native";
+import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, useColorScheme } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChannelMetadata } from "../../types/types";
 import api from "../../utils/api";
@@ -22,7 +16,7 @@ export default function ChannelSelectionPage() {
   // 4. Get Current Theme
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
-  console.log("Channels");
+
   const fetchChannels = async () => {
     try {
       const channelsData = await api.getChannels();
@@ -42,24 +36,12 @@ export default function ChannelSelectionPage() {
   );
 
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        { backgroundColor: theme.background, paddingTop: insets.top },
-      ]}
-    >
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: theme.background }]}>
-        <Text
-          style={[
-            styles.headerTitle,
-            { color: colorScheme === "dark" ? theme.text : "#1A4D8C" },
-          ]}
-        >
+        <Text style={[styles.headerTitle, { color: colorScheme === "dark" ? theme.text : "#1A4D8C" }]}>
           My Channels
         </Text>
-        <Text style={[styles.headerSubtitle, { color: theme.subText }]}>
-          Select a channel to start messenging !
-        </Text>
+        <Text style={[styles.headerSubtitle, { color: theme.subText }]}>Select a channel to start messenging !</Text>
         {/* <Pressable onPress={handleNotif}>
           <Text>Send Notif ?? </Text>
         </Pressable> */}
@@ -73,16 +55,12 @@ export default function ChannelSelectionPage() {
         <FlatList
           data={channels}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <ChannelCard channelMetadata={item} onUpdate={fetchChannels} />
-          )}
+          renderItem={({ item }) => <ChannelCard channelMetadata={item} onUpdate={fetchChannels} />}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: theme.subText }]}>
-                No channels found.
-              </Text>
+              <Text style={[styles.emptyText, { color: theme.subText }]}>No channels found.</Text>
             </View>
           }
         />
