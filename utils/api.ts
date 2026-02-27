@@ -19,7 +19,7 @@ class API {
     : "http://tenropesapi.champinou.com:3000"; // Ton API de Prod;
 
   public jwtToken: string = "";
-
+  public baseurl = this.baseUrl;
   constructor() {
     this.client = axios.create({
       baseURL: this.baseUrl,
