@@ -90,10 +90,7 @@ export default function MessageItem({
           {(!isSameAuthor || showDateSeparator) && (
             <View style={styles.headerContent}>
               <Text style={[styles.authorName, { color: theme.text_color }]}>
-                {author?.display_name ||
-                  author?.username ||
-                  item.author.display_name ||
-                  item.author.username}
+                {author?.username || author?.username || item.author.username}
               </Text>
               <Text
                 style={[styles.timestamp, { color: theme.accent_text_color }]}

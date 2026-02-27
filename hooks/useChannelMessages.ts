@@ -7,7 +7,6 @@ import api from "@/utils/api";
 import { formatImgUrl, isImgUrl } from "@/utils/utils";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { io } from "socket.io-client"; // <-- Import Socket.IO client
 
 export function useChannelMessages(
   channel: ChannelMetadata,
@@ -31,34 +30,30 @@ export function useChannelMessages(
       api.getMessages(channel.id, 0).then((initialMessages) => {
         // inverted because we want newest message at the start of the array
         setMessages(initialMessages.reverse());
+        console.log(initialMessages);
       });
 
-      const usernamesToFetch = channel.members.map((m) => m.user.username);
-      api.getUserData(usernamesToFetch).then((result) => setMembers(result));
-      // --- SOCKET.IO IMPLEMENTATION ---
+      api.getUserData(channel.users).then((result) => setMembers(result));
 
-      const socket = io("http://192.168.1.42:3000", {
-        auth: {
-          token: api.jwtToken,
-        },
-      });
+      const socket = new WebSocket(
+        `https://edu.tardigrade.land/msg/ws/channel/${channel.id}/token/${api.jwtToken}`,
+      );
 
-      socket.on("connect", () => {
-        console.log("Connected to Socket.IO!");
-        socket.emit("joinChannel", channel.id);
-      });
+      socket.onopen = () => {
+        console.log("Connected!");
+      };
 
-      socket.on("message", (newMessage) => {
+      socket.onmessage = (event) => {
+        const newMessage = JSON.parse(event.data);
+
         setMessages((prev) => [newMessage, ...prev]);
-      });
+      };
 
       return () => {
         console.log("Closing socket for channel " + channel.id);
-
-        socket.emit("leaveChannel", channel.id);
-        socket.disconnect();
+        socket.close();
       };
-    }, [channel?.id]),
+    }, [channel?.id]), // Re-run if channel ID changes
   );
 
   const loadOlderMessages = async () => {
@@ -74,8 +69,11 @@ export function useChannelMessages(
       if (olderMessages.length === 0) {
         setHasMore(false);
       } else {
+        // since API returns [oldest ... newer], we need them reversed [newer ... oldest] to append to the list
         const reversedHistory = olderMessages.reverse();
+
         setMessages((prev) => [...prev, ...reversedHistory]);
+
         setBatchOffset(nextBatch);
       }
     } catch (error) {

@@ -30,7 +30,7 @@ export type ChannelMetadata = {
   id: number;
   name: string;
   img: string;
-  creatorId: number;
+  creator: string;
   theme: {
     primary_color: string;
     primary_color_dark: string;
@@ -38,13 +38,7 @@ export type ChannelMetadata = {
     text_color: string;
     accent_text_color: string;
   };
-  members: {
-    role: string;
-    user: {
-      username: string;
-      display_name?: string;
-    };
-  }[];
+  users: string[];
 };
 
 export type ChannelUpdateMetadata = {
@@ -73,7 +67,6 @@ export type ModifiedMessageMetadata = {
   author: {
     id: number;
     username: string;
-    display_name: string;
   };
   authorId: number;
   channel_id: number;
