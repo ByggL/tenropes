@@ -15,8 +15,8 @@ class API {
   private readonly client: AxiosInstance;
   // Ensure this matches your NestJS main.ts port (usually 3000)
   private readonly baseUrl = __DEV__
-    ? "http://100.107.209.76:3000" // Ton API locale
-    : "http://100.107.209.76:3000"; // Ton API de Prod;
+    ? "http://192.168.1.155:3000" // Ton API locale
+    : "http://tenropesapi.champinou.com:3000"; // Ton API de Prod;
 
   public jwtToken: string = "";
 
