@@ -45,15 +45,21 @@ export default function ChannelCard({
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
 
-  const creator = channelMetadata.creator;
-
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        // console.log("fetching user");
         const currentUsername = await AsyncStorage.getItem("currentUsername");
-        if (currentUsername && currentUsername == creator) {
-          setIsAdmin(true);
+
+        if (currentUsername && channelMetadata.members) {
+          // Find the current user in the channel's members array
+          const myMembership = channelMetadata.members.find(
+            (m) => m.user.username === currentUsername,
+          );
+
+          // If the user is found and their role is admin, grant access!
+          if (myMembership && myMembership.role === "admin") {
+            setIsAdmin(true);
+          }
         }
       } catch (error) {
         console.log("Error fetching data :", error);
@@ -61,7 +67,7 @@ export default function ChannelCard({
     };
 
     loadUserData();
-  }, []);
+  }, [channelMetadata]);
 
   // console.log(isAdmin);
 

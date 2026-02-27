@@ -1,0 +1,67 @@
+name: Build and Deploy APK
+
+on:
+  push:
+    branches:
+      - 'release/v*.*.*'
+
+jobs:
+  build-and-release:
+    name: Build Android APK and Release
+    runs-on: ubuntu-latest
+    
+    # We need write permissions to create a GitHub Release on the repo
+    permissions:
+      contents: write 
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+
+      - name: Extract Version (e.g. gets 1.2.3 from release/v1.2.3)
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          echo "VERSION=${BRANCH#release/v}" >> $GITHUB_ENV
+
+      - name: Inject Version into app.json
+        run: |
+          # Sets "version" to your branch version and "versionCode" to the GitHub run number
+          jq --arg v "${{ env.VERSION }}" \
+             --arg vc "${{ github.run_number }}" \
+             '.expo.version = $v | .expo.android.versionCode = ($vc | tonumber)' \
+             app.json > tmp.json && mv tmp.json app.json
+             
+      - name: Build APK locally on GitHub Actions
+        # Notice we are using the new 'release-apk' profile
+        run: |
+          eas build --platform android --profile release-apk --local --output ./myapp-${{ env.VERSION }}.apk
+
+      - name: Create GitHub Release and Upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
+          files: ./myapp-${{ env.VERSION }}.apk
+          generate_release_notes: true
