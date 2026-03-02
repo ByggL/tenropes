@@ -1,6 +1,4 @@
-import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, StatusBar } from "react-native";
-
+// app/(tabs)/channelPage.tsx
 import ChannelHeader from "@/components/chat/ChannelHeader";
 import MessageInput from "@/components/chat/MessageInput";
 import MessageItem from "@/components/chat/MessageItem";
@@ -10,18 +8,23 @@ import { useChannelMessages } from "@/hooks/useChannelMessages";
 import { ChannelMetadata, UserMetadata } from "@/types/types";
 import { setActiveChannel } from "@/utils/notifications";
 import { optimizeThemeForReadability } from "@/utils/utils";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"; // 1. Import useFocusEffect
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useState } from "react";
+import { ActivityIndicator, FlatList, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ChatChannel() {
-  const router = useRouter();
-  const channelParam = useLocalSearchParams().channel;
-  const channel: ChannelMetadata = channelParam ? JSON.parse(channelParam as string) : null;
+  const params = useLocalSearchParams();
+  const channelParam = params.channel;
+  const serverUrl = params.serverUrl as string;
+
+  // Parse the channel data passed from the selection page
+  const channel: ChannelMetadata | null = channelParam ? JSON.parse(channelParam as string) : null;
 
   const [members, setMembers] = useState<UserMetadata[]>([]);
   const [inputText, setInputText] = useState("");
 
-  // all the admin related logic is encapsulated in this hook
+  // Call hooks (they must run every render)
   const {
     isAdmin,
     isSharing,
@@ -31,33 +34,36 @@ export default function ChatChannel() {
     isLoadingQr,
     handleShowQrCode,
     handleShareInvite,
-  } = useChannelAdmin(channel);
+  } = useChannelAdmin(channel, serverUrl);
 
-  // all the message related logic is encapsulated in this hook
-  const { messages, isFetchingHistory, loadOlderMessages, sendMessage } = useChannelMessages(channel, setMembers);
+  const { messages, isFetchingHistory, loadOlderMessages, sendMessage } = useChannelMessages(
+    channel as ChannelMetadata,
+    setMembers,
+    serverUrl,
+  );
 
   useFocusEffect(
     useCallback(() => {
       if (!channel) return;
-
-      // On informe le handler que ce canal est ouvert
       setActiveChannel(channel.id.toString());
-      console.log(channel.id.toString());
-      return () => {
-        // On libère le verrou en quittant
-        setActiveChannel(null);
-      };
-    }, [channel?.id]),
+      return () => setActiveChannel(null);
+    }, [channel?.id, serverUrl]),
   );
 
-  const theme = channel?.theme
+  // CRASH GUARD: If no channel is selected yet, show a placeholder
+  if (!channel) {
+    return (
+      <View style={styles.placeholder}>
+        <ActivityIndicator size="large" color="#999" />
+      </View>
+    );
+  }
+
+  const theme = channel.theme
     ? optimizeThemeForReadability(channel.theme)
     : {
-        primary_color: "#E91E63",
-        primary_color_dark: "#C2185B",
-        accent_color: "#00BCD4",
-        text_color: "#212121",
-        accent_text_color: "#FFFFFF",
+        primary_color_dark: "#222",
+        primary_color: "#333",
       };
 
   const onSendPress = async () => {
@@ -67,8 +73,7 @@ export default function ChatChannel() {
 
   return (
     <SafeAreaView style={{ backgroundColor: theme.primary_color_dark, flex: 1 }}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.primary_color_dark} />
-
+      <StatusBar barStyle="light-content" />
       <ChannelHeader
         channel={channel}
         isAdmin={isAdmin}
@@ -76,24 +81,16 @@ export default function ChatChannel() {
         handleShareInvite={handleShareInvite}
         isSharing={isSharing}
       />
-
       <FlatList
         data={messages}
         keyExtractor={(item, index) => index.toString()}
         inverted={true}
         onEndReached={loadOlderMessages}
-        onEndReachedThreshold={0.2} // triggers when user is 20% away from top
-        ListFooterComponent={
-          isFetchingHistory ? <ActivityIndicator size="small" color="#999" style={{ marginVertical: 20 }} /> : null
-        }
         renderItem={({ item, index }) => (
           <MessageItem item={item} index={index} channel={channel} messages={messages} members={members} />
         )}
-        contentContainerStyle={{ paddingVertical: 10 }}
       />
-
       <MessageInput channel={channel} inputText={inputText} setInputText={setInputText} handleSend={onSendPress} />
-
       <QrCodeModal
         channel={channel}
         isQrModalVisible={isQrModalVisible}
@@ -104,3 +101,7 @@ export default function ChatChannel() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  placeholder: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000" },
+});

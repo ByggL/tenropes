@@ -1,9 +1,9 @@
+// app/(tabs)/userProfile.tsx
 import { DisconnectButton } from "@/components/disconnectButton";
-import { Text, View } from "@/components/Themed"; // Imports your auto-theming components
+import { Text, View } from "@/components/Themed";
 import Colors from "@/constants/Colors";
 import { UserMetadata } from "@/types/types";
-import api from "@/utils/api";
-import { resetNotificationConfig } from "@/utils/notifications";
+import { API } from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -13,7 +13,7 @@ import {
   Animated,
   Image,
   KeyboardAvoidingView,
-  Modal, // 1. Import Modal
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -22,6 +22,12 @@ import {
   TextInput,
   useColorScheme,
 } from "react-native";
+
+// Redux Imports
+import { RootState } from "@/store";
+import { useDispatch, useSelector } from "react-redux";
+import { removeServer } from "../../store/serversSlice";
+
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 export default function UserProfilePage() {
@@ -29,14 +35,18 @@ export default function UserProfilePage() {
   const theme = Colors[colorScheme ?? "light"];
 
   const router = useRouter();
-  const [disconnecting, setDisconnecting] = useState(false); // New state for logout loading
+  const dispatch = useDispatch();
+
+  // Get all active servers from Redux
+  const accounts = useSelector((state: RootState) => state.servers.accounts);
+
+  const [disconnecting, setDisconnecting] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [status, setStatus] = useState("");
   const [userName, setUserName] = useState("");
   const [img, setImg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 2. New state for the Dialog Modal
   const [modalVisible, setModalVisible] = useState(false);
   const [tempImg, setTempImg] = useState("");
 
@@ -46,39 +56,42 @@ export default function UserProfilePage() {
     useCallback(() => {
       const loadUserData = async () => {
         try {
-          const currentUsername = await AsyncStorage.getItem("currentUsername");
-          if (currentUsername) {
-            const data: any = await api.getUserData([currentUsername]);
-            if (data && data[0]) {
-              setUserName(currentUsername);
-              setDisplayName(data[0].display_name || "");
-              setStatus(data[0].status || "");
-              setImg(data[0].img || "");
+          const serverList = Object.values(accounts);
+          if (serverList.length === 0) return;
 
-              Animated.spring(animationValue, {
-                toValue: 1,
-                speed: 0.5,
-                useNativeDriver: false,
-              }).start();
-            }
+          // Fetch profile data from the first active server to populate the form
+          const firstServer = serverList[0];
+          const apiClient = new API(firstServer.serverId);
+
+          const data: any = await apiClient.getUserData([firstServer.username]);
+
+          if (data && data[0]) {
+            setUserName(firstServer.username);
+            setDisplayName(data[0]?.display_name || "");
+            setStatus(data[0]?.status || "");
+            setImg(data[0]?.img || "");
+
+            Animated.spring(animationValue, {
+              toValue: 1,
+              speed: 0.5,
+              useNativeDriver: false,
+            }).start();
           }
         } catch (error) {
-          console.log("Error fetching data :", error);
+          console.log("Error fetching data:", error);
         }
       };
 
       loadUserData();
       return () => {};
-    }, []),
+    }, [accounts]),
   );
 
-  // 3. Handle opening the dialog
   const handleOpenImageDialog = () => {
-    setTempImg(img); // Pre-fill with current URL
+    setTempImg(img);
     setModalVisible(true);
   };
 
-  // 4. Handle saving from the dialog
   const handleSaveImageUri = () => {
     setImg(tempImg);
     setModalVisible(false);
@@ -93,8 +106,17 @@ export default function UserProfilePage() {
         status: status,
         img: img,
       };
-      await api.postNewUserData(newUserData);
-      Alert.alert("Success", "Profile updated!");
+
+      // Push profile updates to ALL connected servers
+      const serverList = Object.values(accounts);
+      const updatePromises = serverList.map(async (server) => {
+        if (server.status === "SESSION_EXPIRED") return;
+        const apiClient = new API(server.serverId);
+        return apiClient.postNewUserData(newUserData);
+      });
+
+      await Promise.allSettled(updatePromises);
+      Alert.alert("Success", "Profile updated across all servers!");
     } catch (error) {
       console.log(`Error while modifying data: ${error}`);
       Alert.alert("Error", "Failed to update profile.");
@@ -103,21 +125,26 @@ export default function UserProfilePage() {
     }
   };
 
-  const handleOnDisconnect = async () => {
-    setDisconnecting(true);
-    try {
-      // 1. Clear session data
-      await AsyncStorage.removeItem("currentUsername");
-      await AsyncStorage.removeItem("jwt_token");
-      resetNotificationConfig();
-      // 2. Redirect to Login (replace prevents going back)
-      router.replace("/(login)");
-    } catch (error) {
-      console.log("Error disconnecting:", error);
-      Alert.alert("Error", "Could not disconnect. Please try again.");
-      setDisconnecting(false);
-    }
+  const handleOnDisconnect = () => {
+    Alert.alert("Reset App?", "This will log you out of EVERY server and delete all local data. Continue?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Wipe Everything",
+        style: "destructive",
+        onPress: async () => {
+          setDisconnecting(true);
+          // Loop through all and remove
+          const serverIds = Object.keys(accounts);
+          for (const id of serverIds) {
+            dispatch(removeServer(id));
+          }
+          await AsyncStorage.clear(); // Complete wipe
+          router.replace("/add-server");
+        },
+      },
+    ]);
   };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -125,42 +152,26 @@ export default function UserProfilePage() {
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContainer,
-          { backgroundColor: theme.inputBg },
-        ]}
+        contentContainerStyle={[styles.scrollContainer, { backgroundColor: theme.inputBg }]}
         keyboardShouldPersistTaps="handled"
       >
-        <StatusBar barStyle={theme ? "light-content" : "dark-content"} />
+        <StatusBar barStyle={colorScheme === "dark" ? "light-content" : "dark-content"} />
 
-        {/* 5. The Custom Dialog Modal */}
         <Modal
           animationType="fade"
           transparent={true}
           visible={modalVisible}
           onRequestClose={() => setModalVisible(false)}
         >
-          <View
-            style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}
-          >
-            <View
-              style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
-            >
-              <Text style={[styles.modalTitle, { color: theme.text }]}>
-                Change Profile Picture
-              </Text>
-              <Text style={[styles.modalSubtitle, { color: theme.subText }]}>
-                Enter a public URL for your image.
-              </Text>
+          <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.cardBg }]}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Change Profile Picture</Text>
+              <Text style={[styles.modalSubtitle, { color: theme.subText }]}>Enter a public URL for your image.</Text>
 
               <TextInput
                 style={[
                   styles.modalInput,
-                  {
-                    backgroundColor: theme.inputBg,
-                    color: theme.text,
-                    borderColor: theme.inputBorder,
-                  },
+                  { backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.inputBorder },
                 ]}
                 placeholder="https://example.com/image.png"
                 placeholderTextColor={theme.subText}
@@ -170,23 +181,15 @@ export default function UserProfilePage() {
               />
 
               <View style={styles.modalButtons}>
-                <Pressable
-                  style={[styles.modalButton, styles.buttonCancel]}
-                  onPress={() => setModalVisible(false)}
-                >
+                <Pressable style={[styles.modalButton, styles.buttonCancel]} onPress={() => setModalVisible(false)}>
                   <Text style={{ color: theme.subText }}>Cancel</Text>
                 </Pressable>
 
                 <Pressable
-                  style={[
-                    styles.modalButton,
-                    { backgroundColor: theme.primary },
-                  ]}
+                  style={[styles.modalButton, { backgroundColor: theme.primary }]}
                   onPress={handleSaveImageUri}
                 >
-                  <Text style={{ color: theme.onPrimary, fontWeight: "bold" }}>
-                    Set Image
-                  </Text>
+                  <Text style={{ color: theme.onPrimary, fontWeight: "bold" }}>Set Image</Text>
                 </Pressable>
               </View>
             </View>
@@ -195,16 +198,9 @@ export default function UserProfilePage() {
 
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <View style={styles.avatarContainer}>
-            {/* 6. Pressing avatar now opens the dialog */}
             <Pressable
               onPress={handleOpenImageDialog}
-              style={({ pressed }) => [
-                styles.avatar,
-                {
-                  backgroundColor: theme.inputBg,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
+              style={({ pressed }) => [styles.avatar, { backgroundColor: theme.inputBg, opacity: pressed ? 0.7 : 1 }]}
             >
               {img ? (
                 <Image
@@ -215,30 +211,20 @@ export default function UserProfilePage() {
               ) : (
                 <Text style={{ fontSize: 24, color: theme.subText }}>📷</Text>
               )}
-
               <View style={styles.editIconOverlay}>
                 <Text style={{ fontSize: 12, color: "#fff" }}>✎</Text>
               </View>
             </Pressable>
-
-            <Text style={[styles.usernameText, { color: theme.text }]}>
-              @{userName || "username"}
-            </Text>
+            <Text style={[styles.usernameText, { color: theme.text }]}>@{userName || "username"}</Text>
           </View>
 
-          <Animated.Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Edit Profile
-          </Animated.Text>
+          <Animated.Text style={[styles.sectionTitle, { color: theme.text }]}>Edit Profile</Animated.Text>
 
           <View style={styles.inputContainer}>
             <Animated.Text
               style={[
                 styles.label,
-                {
-                  color: theme.subText,
-                  opacity: animationValue,
-                  transform: [{ scale: animationValue }],
-                },
+                { color: theme.subText, opacity: animationValue, transform: [{ scale: animationValue }] },
               ]}
             >
               Display Name
@@ -263,11 +249,7 @@ export default function UserProfilePage() {
             <Animated.Text
               style={[
                 styles.label,
-                {
-                  color: theme.subText,
-                  opacity: animationValue,
-                  transform: [{ scale: animationValue }],
-                },
+                { color: theme.subText, opacity: animationValue, transform: [{ scale: animationValue }] },
               ]}
             >
               Status
@@ -291,35 +273,25 @@ export default function UserProfilePage() {
           </View>
 
           <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              { backgroundColor: theme.primary, opacity: pressed ? 0.9 : 1 },
-            ]}
+            style={({ pressed }) => [styles.button, { backgroundColor: theme.primary, opacity: pressed ? 0.9 : 1 }]}
             onPress={handleValidate}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color={theme.onPrimary} />
             ) : (
-              <Text style={[styles.buttonText, { color: theme.onPrimary }]}>
-                Save Changes
-              </Text>
+              <Text style={[styles.buttonText, { color: theme.onPrimary }]}>Save Changes</Text>
             )}
           </Pressable>
         </View>
       </ScrollView>
-      <DisconnectButton onPress={handleOnDisconnect} />
+      <DisconnectButton onPress={handleOnDisconnect} isLoading={disconnecting} />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
+  scrollContainer: { flexGrow: 1, alignItems: "center", justifyContent: "center", padding: 20 },
   card: {
     width: "100%",
     maxWidth: 400,
@@ -331,10 +303,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  avatarContainer: {
-    alignItems: "center",
-    marginBottom: 25,
-  },
+  avatarContainer: { alignItems: "center", marginBottom: 25 },
   avatar: {
     width: 80,
     height: 80,
@@ -357,51 +326,14 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#fff",
   },
-  usernameText: {
-    fontSize: 16,
-    fontWeight: "600",
-    opacity: 0.8,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "left",
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    marginBottom: 6,
-    fontWeight: "500",
-    marginLeft: 4,
-  },
-  textInputs: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  button: {
-    height: 50,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  // --- New Modal Styles ---
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  usernameText: { fontSize: 16, fontWeight: "600", opacity: 0.8 },
+  sectionTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 20, textAlign: "left" },
+  inputContainer: { marginBottom: 20 },
+  label: { fontSize: 14, marginBottom: 6, fontWeight: "500", marginLeft: 4 },
+  textInputs: { height: 50, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, marginBottom: 15, fontSize: 16 },
+  button: { height: 50, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 10 },
+  buttonText: { fontSize: 16, fontWeight: "bold" },
+  modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center" },
   modalContent: {
     width: "80%",
     padding: 20,
@@ -412,38 +344,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  modalInput: {
-    height: 45,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  modalButton: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    marginHorizontal: 5,
-  },
-  buttonCancel: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "#ccc",
-  },
+  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10, textAlign: "center" },
+  modalSubtitle: { fontSize: 14, marginBottom: 15, textAlign: "center" },
+  modalInput: { height: 45, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, marginBottom: 20 },
+  modalButtons: { flexDirection: "row", justifyContent: "space-between" },
+  modalButton: { flex: 1, padding: 10, borderRadius: 8, alignItems: "center", marginHorizontal: 5 },
+  buttonCancel: { backgroundColor: "transparent", borderWidth: 1, borderColor: "#ccc" },
 });

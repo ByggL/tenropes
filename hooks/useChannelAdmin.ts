@@ -1,10 +1,10 @@
+import { store } from "@/store"; // Import Redux store to get the current user
 import { ChannelMetadata } from "@/types/types";
-import api from "@/utils/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API } from "@/utils/api";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Share } from "react-native";
 
-export function useChannelAdmin(channel: ChannelMetadata | null) {
+export function useChannelAdmin(channel: ChannelMetadata | null, serverUrl: string) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [isQrModalVisible, setQrModalVisible] = useState(false);
@@ -13,11 +13,15 @@ export function useChannelAdmin(channel: ChannelMetadata | null) {
 
   // check admin status
   useEffect(() => {
-    if (!channel) return;
+    if (!channel || !serverUrl) return;
 
     const checkAdmin = async () => {
       try {
-        const currentUsername = await AsyncStorage.getItem("currentUsername");
+        // Read the username for THIS specific server directly from Redux
+        const state = store.getState();
+        const currentUsername = state.servers?.accounts?.[serverUrl]?.username;
+
+        // @ts-ignore - Assuming channel.creator exists in your runtime data
         if (currentUsername && currentUsername === channel.creator) {
           setIsAdmin(true);
         }
@@ -27,17 +31,19 @@ export function useChannelAdmin(channel: ChannelMetadata | null) {
     };
 
     checkAdmin();
-  }, [channel?.creator]);
+  }, [channel, serverUrl]);
 
   const handleShowQrCode = useCallback(async () => {
-    if (!channel) return;
+    if (!channel || !serverUrl) return;
     setQrModalVisible(true);
 
     if (qrInviteLink) return;
 
     setIsLoadingQr(true);
     try {
-      const link = await api.createInvite(channel.id);
+      const apiClient = new API(serverUrl);
+      // @ts-ignore - Ensure createInvite is uncommented/implemented in your api.ts!
+      const link = await apiClient.createInvite(channel.id);
       console.log("Generated QR invite link:", link);
       setQrInviteLink(link);
       setQrModalVisible(true);
@@ -48,14 +54,16 @@ export function useChannelAdmin(channel: ChannelMetadata | null) {
     } finally {
       setIsLoadingQr(false);
     }
-  }, [channel?.id]);
+  }, [channel?.id, serverUrl, qrInviteLink]);
 
   const handleShareInvite = useCallback(async () => {
-    if (!channel || isSharing) return;
+    if (!channel || isSharing || !serverUrl) return;
     setIsSharing(true);
 
     try {
-      const link = await api.createInvite(channel.id);
+      const apiClient = new API(serverUrl);
+      // @ts-ignore - Ensure createInvite is uncommented/implemented in your api.ts!
+      const link = await apiClient.createInvite(channel.id);
       const result = await Share.share({
         message: `Join me in #${channel.name} on Tenropes! Here is your invite link: ${link}`,
         url: link,
@@ -66,7 +74,7 @@ export function useChannelAdmin(channel: ChannelMetadata | null) {
     } finally {
       setIsSharing(false);
     }
-  }, [channel?.id, channel?.name, isSharing]);
+  }, [channel?.id, channel?.name, isSharing, serverUrl]);
 
   return {
     isAdmin,
