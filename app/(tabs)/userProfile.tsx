@@ -6,6 +6,7 @@ import { UserMetadata } from "@/types/types";
 import { API } from "@/utils/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store"; // Make sure this is imported
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -22,7 +23,6 @@ import {
   TextInput,
   useColorScheme,
 } from "react-native";
-
 // Redux Imports
 import { RootState } from "@/store";
 import { useDispatch, useSelector } from "react-redux";
@@ -133,13 +133,27 @@ export default function UserProfilePage() {
         style: "destructive",
         onPress: async () => {
           setDisconnecting(true);
-          // Loop through all and remove
-          const serverIds = Object.keys(accounts);
-          for (const id of serverIds) {
-            dispatch(removeServer(id));
+
+          try {
+            // 1. Wipe Redux State immediately (clears the UI)
+            const serverIds = Object.keys(accounts);
+            serverIds.forEach((id) => dispatch(removeServer(id)));
+
+            // 2. Wipe the SecureStore key (This is the "Source of Truth")
+            // My sanitization logic changed 'persist:root' -> 'persist_root'
+            await SecureStore.deleteItemAsync("persist_root");
+
+            // 3. Wipe AsyncStorage for good measure (clean up any metadata)
+            await AsyncStorage.clear();
+
+            // 4. Force move to the add-server screen
+            router.replace("/add-server");
+          } catch (error) {
+            console.error("The wipe failed:", error);
+            Alert.alert("Error", "Could not completely reset the app.");
+          } finally {
+            setDisconnecting(false);
           }
-          await AsyncStorage.clear(); // Complete wipe
-          router.replace("/add-server");
         },
       },
     ]);
