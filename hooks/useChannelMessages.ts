@@ -1,17 +1,15 @@
-import {
-  ChannelMetadata,
-  ModifiedMessageMetadata,
-  UserMetadata,
-} from "@/types/types";
-import api from "@/utils/api";
+import { store } from "@/store"; // Import Redux store to get the token for WebSockets
+import { ChannelMetadata, ModifiedMessageMetadata, UserMetadata } from "@/types/types";
+import { API } from "@/utils/api";
 import { formatImgUrl, isImgUrl } from "@/utils/utils";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { io } from "socket.io-client"; // <-- Import Socket.IO client
+import { io } from "socket.io-client";
 
 export function useChannelMessages(
   channel: ChannelMetadata,
   setMembers: React.Dispatch<React.SetStateAction<UserMetadata[]>>,
+  serverUrl: string, // <-- Now accepts serverUrl
 ) {
   const [messages, setMessages] = useState<ModifiedMessageMetadata[]>([]);
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
@@ -20,31 +18,40 @@ export function useChannelMessages(
 
   useFocusEffect(
     useCallback(() => {
-      if (!channel) return;
+      if (!channel || !serverUrl) return;
 
-      console.log("Refreshing channel " + channel.id);
+      console.log("Refreshing channel " + channel.id + " on server " + serverUrl);
 
       setBatchOffset(0);
       setHasMore(false);
       setIsFetchingHistory(false);
 
-      api.getMessages(channel.id, 0).then((initialMessages) => {
+      // 1. Initialize API for this specific server
+      const apiClient = new API(serverUrl);
+
+      apiClient.getMessages(channel.id, 0).then((initialMessages) => {
         // inverted because we want newest message at the start of the array
         setMessages(initialMessages.reverse());
       });
 
       const usernamesToFetch = channel.members.map((m) => m.user.username);
-      api.getUserData(usernamesToFetch).then((result) => setMembers(result));
+      apiClient.getUserData(usernamesToFetch).then((result) => setMembers(result));
+
       // --- SOCKET.IO IMPLEMENTATION ---
 
-      const socket = io("http://192.168.1.42:3000", {
+      // 2. Fetch the correct token for this server from Redux
+      const state = store.getState();
+      const token = state.servers?.accounts?.[serverUrl]?.accessToken;
+
+      // 3. Connect to the dynamic serverUrl, NOT the hardcoded IP
+      const socket = io(serverUrl, {
         auth: {
-          token: api.jwtToken,
+          token: token,
         },
       });
 
       socket.on("connect", () => {
-        console.log("Connected to Socket.IO!");
+        console.log("Connected to Socket.IO on " + serverUrl);
         socket.emit("joinChannel", channel.id);
       });
 
@@ -54,22 +61,22 @@ export function useChannelMessages(
 
       return () => {
         console.log("Closing socket for channel " + channel.id);
-
         socket.emit("leaveChannel", channel.id);
         socket.disconnect();
       };
-    }, [channel?.id]),
+    }, [channel?.id, serverUrl]),
   );
 
   const loadOlderMessages = async () => {
-    if (isFetchingHistory || !hasMore) return;
+    if (isFetchingHistory || !hasMore || !serverUrl) return;
 
     setIsFetchingHistory(true);
 
     try {
+      const apiClient = new API(serverUrl);
       const nextBatch = batchOffset + 40;
 
-      const olderMessages = await api.getMessages(channel.id, nextBatch);
+      const olderMessages = await apiClient.getMessages(channel.id, nextBatch);
 
       if (olderMessages.length === 0) {
         setHasMore(false);
@@ -86,12 +93,13 @@ export function useChannelMessages(
   };
 
   const sendMessage = async (content: string) => {
-    if (!channel || !content.trim()) return;
+    if (!channel || !content.trim() || !serverUrl) return;
 
     const isImageLink = isImgUrl(content);
 
     try {
-      await api.sendMessage(channel.id, {
+      const apiClient = new API(serverUrl);
+      await apiClient.sendMessage(channel.id, {
         type: isImageLink ? "Image" : "Text",
         content: isImageLink ? formatImgUrl(content) : content,
       });

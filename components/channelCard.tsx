@@ -1,8 +1,8 @@
-import Colors from "@/constants/Colors"; // 3. Import Colors
+import Colors from "@/constants/Colors";
+import { RootState } from "@/store";
 import { ChannelMetadata, ChannelUpdateMetadata } from "@/types/types";
-import api from "@/utils/api";
+import { API } from "@/utils/api";
 import { FontAwesome } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -12,51 +12,48 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  // 1. Remove standard Text/View imports to avoid conflict if you use Themed versions,
-  // or rename them. Here I stick to standard RN imports but apply theme styles manually
-  // to ensure I don't break your structure.
   Text,
   TextInput,
   View,
-  useColorScheme, // 2. Import hook
+  useColorScheme,
 } from "react-native";
+import { useSelector } from "react-redux";
 import ChannelForm from "./channelCreaModifForm";
 
+// Extend the type to expect the server information passed from ChannelSelectionPage
+export type MultiServerChannel = ChannelMetadata & { serverUrl: string; serverNickname?: string };
+
 interface ChannelCardProps {
-  channelMetadata: ChannelMetadata;
+  channelMetadata: MultiServerChannel;
   onUpdate: () => void;
 }
 
-export default function ChannelCard({
-  channelMetadata,
-  onUpdate,
-}: ChannelCardProps) {
+export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardProps) {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState<
-    "menu" | "edit" | "shareChannel" | "banUser"
-  >("menu");
+  const [modalMode, setModalMode] = useState<"menu" | "edit" | "shareChannel" | "banUser">("menu");
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [banInput, setBanInput] = useState("");
 
-  // 4. Get Theme
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
 
+  // Grab the servers from Redux to check our identity
+  const accounts = useSelector((state: RootState) => state.servers.accounts);
+
   useEffect(() => {
+    if (!channelMetadata) return;
+
     const loadUserData = async () => {
       try {
-        const currentUsername = await AsyncStorage.getItem("currentUsername");
+        // Find our username for the specific server this channel lives on
+        const currentUsername = accounts[channelMetadata.serverUrl]?.username;
 
         if (currentUsername && channelMetadata.members) {
-          // Find the current user in the channel's members array
-          const myMembership = channelMetadata.members.find(
-            (m) => m.user.username === currentUsername,
-          );
+          const myMembership = channelMetadata.members.find((m) => m.user.username === currentUsername);
 
-          // If the user is found and their role is admin, grant access!
           if (myMembership && myMembership.role === "admin") {
             setIsAdmin(true);
           }
@@ -67,15 +64,17 @@ export default function ChannelCard({
     };
 
     loadUserData();
-  }, [channelMetadata]);
+  }, [channelMetadata, accounts]);
 
-  // console.log(isAdmin);
+  // Safety return if data hasn't loaded yet to prevent crashes
+  if (!channelMetadata) return null;
 
   const handlePress = () => {
     router.push({
       pathname: "/(tabs)/channelPage",
       params: {
         channel: JSON.stringify(channelMetadata),
+        serverUrl: channelMetadata.serverUrl, // CRITICAL: Tell the chat page which server to use
         messages: JSON.stringify([]),
       },
     });
@@ -86,11 +85,7 @@ export default function ChannelCard({
       setModalMode("menu");
       setModalVisible(true);
     } else {
-      Alert.alert(
-        "Authorization Error",
-        "You are not an admin of this channel.",
-        [{ text: "OK", onPress: () => console.log("OK Pressed") }],
-      );
+      Alert.alert("Authorization Error", "You are not an admin of this channel.", [{ text: "OK" }]);
     }
   };
 
@@ -99,7 +94,7 @@ export default function ChannelCard({
   };
 
   const handleBanPress = () => {
-    setBanInput(""); // Reset input
+    setBanInput("");
     setModalMode("banUser");
   };
 
@@ -111,8 +106,8 @@ export default function ChannelCard({
 
     setLoading(true);
     try {
-      // Calls the requested function signature
-      await api.banUserFromChannel(channelMetadata.id, banInput.trim());
+      const apiClient = new API(channelMetadata.serverUrl);
+      await apiClient.banUserFromChannel(channelMetadata.id, banInput.trim());
       Alert.alert("Success", `User ${banInput} has been banned.`);
       setModalMode("menu");
     } catch (error) {
@@ -123,11 +118,7 @@ export default function ChannelCard({
     }
   };
 
-  const handleUpdateSubmit = async (data: {
-    name: string;
-    img: string;
-    theme: any;
-  }) => {
+  const handleUpdateSubmit = async (data: { name: string; img: string; theme: any }) => {
     setLoading(true);
     try {
       const updateData: ChannelUpdateMetadata = {
@@ -136,7 +127,8 @@ export default function ChannelCard({
         theme: data.theme,
       };
 
-      await api.updateChannel(channelMetadata.id, updateData);
+      const apiClient = new API(channelMetadata.serverUrl);
+      await apiClient.updateChannel(channelMetadata.id, updateData);
 
       setModalVisible(false);
       onUpdate();
@@ -153,7 +145,8 @@ export default function ChannelCard({
 
   const handleDelete = async () => {
     try {
-      await api.deleteChannel(channelMetadata.id);
+      const apiClient = new API(channelMetadata.serverUrl);
+      await apiClient.deleteChannel(channelMetadata.id);
       setModalVisible(false);
       onUpdate();
     } catch (error) {
@@ -166,12 +159,8 @@ export default function ChannelCard({
       case "menu":
         return (
           <>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
-              Channel Options
-            </Text>
-            <Text style={[styles.modalSubtitle, { color: theme.subText }]}>
-              What do you want to do?
-            </Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Channel Options</Text>
+            <Text style={[styles.modalSubtitle, { color: theme.subText }]}>What do you want to do?</Text>
 
             <Pressable
               style={[styles.modalButton, styles.buttonModify]}
@@ -181,34 +170,19 @@ export default function ChannelCard({
               <Text style={styles.textModify}>Modify Channel</Text>
             </Pressable>
 
-            {/* NEW BAN BUTTON */}
-            <Pressable
-              style={[styles.modalButton, styles.buttonBan]}
-              onPress={handleBanPress}
-              disabled={!isAdmin}
-            >
+            <Pressable style={[styles.modalButton, styles.buttonBan]} onPress={handleBanPress} disabled={!isAdmin}>
               <Text style={styles.textBan}>Ban User</Text>
             </Pressable>
 
-            <Pressable
-              style={[styles.modalButton, styles.buttonDelete]}
-              onPress={handleDelete}
-              disabled={!isAdmin}
-            >
+            <Pressable style={[styles.modalButton, styles.buttonDelete]} onPress={handleDelete} disabled={!isAdmin}>
               <Text style={styles.textDelete}>Delete Channel</Text>
             </Pressable>
 
-            <Pressable
-              style={[styles.modalButton, styles.buttonShare]}
-              onPress={handleShare}
-            >
+            <Pressable style={[styles.modalButton, styles.buttonShare]} onPress={handleShare}>
               <Text style={styles.textShare}>Share channel through link</Text>
             </Pressable>
 
-            <Pressable
-              style={[styles.modalButton, styles.buttonCancel]}
-              onPress={() => setModalVisible(false)}
-            >
+            <Pressable style={[styles.modalButton, styles.buttonCancel]} onPress={() => setModalVisible(false)}>
               <Text style={styles.textCancel}>Cancel</Text>
             </Pressable>
           </>
@@ -217,15 +191,8 @@ export default function ChannelCard({
       case "banUser":
         return (
           <>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
-              Ban User
-            </Text>
-            <Text
-              style={[
-                styles.modalSubtitle,
-                { color: theme.subText, marginBottom: 15 },
-              ]}
-            >
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Ban User</Text>
+            <Text style={[styles.modalSubtitle, { color: theme.subText, marginBottom: 15 }]}>
               Enter the username to ban from this channel.
             </Text>
 
@@ -250,11 +217,7 @@ export default function ChannelCard({
               onPress={handleBanSubmit}
               disabled={loading}
             >
-              {loading ? (
-                <ActivityIndicator color="#D32F2F" />
-              ) : (
-                <Text style={styles.textBan}>Confirm Ban</Text>
-              )}
+              {loading ? <ActivityIndicator color="#D32F2F" /> : <Text style={styles.textBan}>Confirm Ban</Text>}
             </Pressable>
 
             <Pressable
@@ -270,14 +233,12 @@ export default function ChannelCard({
       case "edit":
         return (
           <>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
-              Edit Channel
-            </Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Channel</Text>
             <ChannelForm
               initialData={{
-                name: channelMetadata.name,
-                img: channelMetadata.img,
-                theme: channelMetadata.theme,
+                name: channelMetadata?.name || "",
+                img: channelMetadata?.img || "",
+                theme: channelMetadata?.theme,
               }}
               onSubmit={handleUpdateSubmit}
               submitLabel="Save Changes"
@@ -300,10 +261,7 @@ export default function ChannelCard({
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setModalVisible(false)}
-        >
+        <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
           <Pressable
             style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
             onPress={(e) => e.stopPropagation()}
@@ -318,30 +276,23 @@ export default function ChannelCard({
         onLongPress={handleLongPress}
         style={({ pressed }) => [
           styles.cardContainer,
-          // 7. Apply Theme to Card Background and Pressed State
           {
             backgroundColor: theme.cardBg,
-            borderColor: theme.inputBorder, // Subtle border in dark mode
+            borderColor: theme.inputBorder,
           },
-          pressed && { opacity: 0.7, backgroundColor: theme.inputBg }, // Replaces styles.cardPressed
+          pressed && { opacity: 0.7, backgroundColor: theme.inputBg },
         ]}
       >
         <Image
-          source={{ uri: channelMetadata.img }}
+          source={{ uri: channelMetadata?.img || "https://placehold.co/50x50/png" }}
           style={styles.cardImage}
           resizeMode="cover"
         />
         <View style={styles.textContainer}>
-          <Text
-            style={[styles.channelName, { color: theme.text }]}
-            numberOfLines={1}
-          >
-            {channelMetadata.name}
+          <Text style={[styles.channelName, { color: theme.text }]} numberOfLines={1}>
+            {channelMetadata?.name || "Loading..."}
           </Text>
-          <Text
-            style={[styles.lastMessage, { color: theme.subText }]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.lastMessage, { color: theme.subText }]} numberOfLines={1}>
             Tap to view messages
           </Text>
         </View>
@@ -352,14 +303,10 @@ export default function ChannelCard({
 }
 
 const styles = StyleSheet.create({
-  cardWrapper: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
+  cardWrapper: { paddingHorizontal: 20, paddingVertical: 8 },
   cardContainer: {
     flexDirection: "row",
     alignItems: "center",
-    // backgroundColor: "#FFFFFF", // Removed, handled inline
     borderRadius: 16,
     padding: 12,
     shadowColor: "#000",
@@ -368,39 +315,14 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
     borderWidth: 1,
-    // borderColor: "#F0F0F0", // Removed, handled inline
   },
-  // cardPressed removed, handled inline for dynamic colors
-  cardImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: "#E1E4E8",
-  },
-  textContainer: {
-    flex: 1,
-    marginLeft: 15,
-    justifyContent: "center",
-  },
-  channelName: {
-    fontSize: 16,
-    fontWeight: "700",
-    // color: "#1A4D8C", // Removed, handled inline
-    marginBottom: 4,
-  },
-  lastMessage: {
-    fontSize: 13,
-    // color: "#8E8E93", // Removed, handled inline
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
+  cardImage: { width: 50, height: 50, borderRadius: 14, backgroundColor: "#E1E4E8" },
+  textContainer: { flex: 1, marginLeft: 15, justifyContent: "center" },
+  channelName: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
+  lastMessage: { fontSize: 13 },
+  modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0, 0, 0, 0.5)" },
   modalContent: {
     width: "85%",
-    // backgroundColor: "white", // Removed, handled inline
     borderRadius: 20,
     padding: 24,
     alignItems: "center",
@@ -410,79 +332,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-    // color: "#1A4D8C", // Removed, handled inline
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    marginBottom: 20,
-    // color: "#666", // Removed, handled inline
-  },
-  modalButton: {
-    width: "100%",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  modalButtonDisabled: {
-    width: "100%",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 10,
-    backgroundColor: "grey",
-    color: "gray",
-  },
-  buttonModify: {
-    backgroundColor: "#E3F2FD", // Kept specific status colors
-  },
-  textModify: {
-    color: "#1E88E5",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  buttonDelete: {
-    backgroundColor: "#FFEBEE", // Kept specific status colors
-  },
-  textDelete: {
-    color: "#D32F2F",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  buttonShare: {
-    backgroundColor: "#8af7cd", // Kept specific status colors
-  },
-  textShare: {
-    color: "#1c9c22",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  buttonCancel: {
-    marginTop: 5,
-  },
-  textCancel: {
-    color: "#999",
-    fontSize: 14,
-  },
-  buttonBan: {
-    backgroundColor: "#FFF3E0", // Light Orange
-  },
-  textBan: {
-    color: "#E65100", // Dark Orange
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  // Added Input Style
-  input: {
-    width: "100%",
-    padding: 12,
-    borderWidth: 1,
-    borderRadius: 12,
-    fontSize: 16,
-    marginBottom: 10,
-  },
+  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 10 },
+  modalSubtitle: { fontSize: 16, marginBottom: 20 },
+  modalButton: { width: "100%", padding: 12, borderRadius: 12, alignItems: "center", marginBottom: 10 },
+  buttonModify: { backgroundColor: "#E3F2FD" },
+  textModify: { color: "#1E88E5", fontWeight: "bold", fontSize: 16 },
+  buttonDelete: { backgroundColor: "#FFEBEE" },
+  textDelete: { color: "#D32F2F", fontWeight: "bold", fontSize: 16 },
+  buttonShare: { backgroundColor: "#8af7cd" },
+  textShare: { color: "#1c9c22", fontWeight: "bold", fontSize: 16 },
+  buttonCancel: { marginTop: 5 },
+  textCancel: { color: "#999", fontSize: 14 },
+  buttonBan: { backgroundColor: "#FFF3E0" },
+  textBan: { color: "#E65100", fontWeight: "bold", fontSize: 16 },
+  input: { width: "100%", padding: 12, borderWidth: 1, borderRadius: 12, fontSize: 16, marginBottom: 10 },
 });

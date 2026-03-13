@@ -1,7 +1,9 @@
 import { ChannelMetadata } from "@/types/types";
 import { optimizeThemeForReadability } from "@/utils/utils";
+import { FontAwesome } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 type ChannelHeaderProps = {
   channel: ChannelMetadata;
@@ -28,7 +30,7 @@ export default function ChannelHeader({
         text_color: "#212121",
         accent_text_color: "#FFFFFF",
       };
-
+  const router = useRouter();
   return (
     <View
       style={[
@@ -42,7 +44,9 @@ export default function ChannelHeader({
       {/* <TouchableOpacity onPress={() => router.dismissTo("/(tabs)/channelSelectionPage")} style={{ paddingRight: 12, paddingLeft: 4 }}>
               <FontAwesome name="arrow-left" size={20} color={theme.text_color} />
             </TouchableOpacity> */}
-
+      <Pressable onPress={() => router.replace("/(tabs)/channelSelectionPage")} style={{ paddingRight: 15 }}>
+        <FontAwesome name="chevron-left" size={20} color="#fff" />
+      </Pressable>
       <Image source={{ uri: channel.img }} style={styles.avatar} />
       <Text style={[styles.channelName, { color: theme.text_color, paddingLeft: 8 }]}>{channel?.name}</Text>
 
