@@ -8,21 +8,20 @@ import {
   NewMessageData,
   UserMetadata,
 } from "@/types/types";
-import axios, { AxiosInstance } from "axios";
-import { clearJwt, getJwt, storeJwt } from "./jwt";
+import axios, { AxiosInstance, isAxiosError } from "axios";
 
-class API {
+// Make sure this path points to where you actually create your Redux store
+import { store } from "../store";
+import { markSessionExpired, updateTokens } from "../store/serversSlice";
+
+export class API {
   private readonly client: AxiosInstance;
-  // Ensure this matches your NestJS main.ts port (usually 3000)
-  private readonly baseUrl = __DEV__
-    ? "http://192.168.1.155:3000" // Ton API locale
-    : "http://tenropesapi.champinou.com:3000"; // Ton API de Prod;
+  public serverUrl: string;
 
-  public jwtToken: string = "";
-  public baseurl = this.baseUrl;
-  constructor() {
+  constructor(serverUrl: string) {
+    this.serverUrl = serverUrl;
     this.client = axios.create({
-      baseURL: this.baseUrl,
+      baseURL: this.serverUrl,
     });
 
     this.client.interceptors.request.use(async (config) => {
@@ -31,54 +30,66 @@ class API {
         config.headers["Content-Type"] = "application/json";
       }
 
-      const tokens = await getJwt();
+      // Fetch tokens directly from Redux for THIS specific server URL
+      const state = store.getState();
+      const account = state.servers?.accounts?.[this.serverUrl];
 
-      // If the route is /auth/refresh, the backend requires the Refresh Token
       if (config.url?.includes("/auth/refresh")) {
-        if (tokens?.refreshToken) {
-          config.headers.Authorization = `Bearer ${tokens.refreshToken}`;
+        if (account?.refreshToken) {
+          config.headers.Authorization = `Bearer ${account.refreshToken}`;
         }
-      }
-      // For all other protected routes, use the Access Token
-      else if (
+      } else if (
         config.url?.includes("/protected/") ||
         config.url?.includes("/user") ||
-        config.url?.includes("/auth/logout") ||
-        config.url?.includes("/auth/refresh")
+        config.url?.includes("/auth/logout")
       ) {
-        if (tokens?.accessToken) {
-          this.jwtToken = tokens.accessToken;
-          config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+        if (account?.accessToken) {
+          config.headers.Authorization = `Bearer ${account.accessToken}`;
         }
       }
       return config;
     });
 
-    // Add a RESPONSE interceptor for automatic token refresh
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
 
-        // If 401 Unauthorized and we haven't already retried
-        if (
-          error.response?.status === 401 &&
-          !originalRequest._retry &&
-          !originalRequest.url.includes("/auth/login")
-        ) {
+        if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes("/auth/login")) {
           originalRequest._retry = true;
 
           try {
-            // Call the refresh token endpoint
-            const refreshResult = await this.extendSession();
+            const state = store.getState();
+            const account = state.servers?.accounts?.[this.serverUrl];
 
-            // Update the header on the failed request and retry it
-            originalRequest.headers.Authorization = `Bearer ${refreshResult.access_token}`;
+            if (!account?.refreshToken) throw new Error("No refresh token available");
+
+            // Bypass interceptors for the refresh request to avoid loops
+            const refreshResponse = await axios.post<ExtendSessionResponse>(
+              `${this.serverUrl}/auth/refresh`,
+              {},
+              { headers: { Authorization: `Bearer ${account.refreshToken}` } },
+            );
+
+            const newTokens = {
+              accessToken: refreshResponse.data.access_token,
+              refreshToken: refreshResponse.data.refresh_token,
+            };
+
+            // Dispatch the new tokens to Redux directly
+            store.dispatch(
+              updateTokens({
+                serverId: this.serverUrl,
+                ...newTokens,
+              }),
+            );
+
+            // Retry original request
+            originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
             return this.client(originalRequest);
           } catch (refreshError) {
-            // If refresh fails (e.g., refresh token expired after 7 days), clear tokens
-            await clearJwt();
-            // Optional: You could emit an event here to force the UI back to the login screen
+            // If refresh fails, kill the session in Redux
+            store.dispatch(markSessionExpired(this.serverUrl));
             return Promise.reject(refreshError);
           }
         }
@@ -87,32 +98,38 @@ class API {
     );
   }
 
+  // --- Static login helper for the Add Server Modal ---
+  public static async loginServer(serverUrl: string, username: string, password: string): Promise<LoginResponse> {
+    try {
+      const response = await axios.post<LoginResponse>(`${serverUrl}/auth/login`, {
+        username,
+        password,
+      });
+      return response.data;
+    } catch (error: any) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Login failed, invalid credentials");
+      }
+      throw new Error("Login failed");
+    }
+  }
+
   ///////////////////////////////////////
   //////////// AUTH REQUESTS ////////////
   ///////////////////////////////////////
 
-  public async login(
-    username: string,
-    password: string,
-  ): Promise<LoginResponse> {
+  public async login(username: string, password: string): Promise<LoginResponse> {
     try {
-      // Backend: AuthController @Post('login')
       const response = await this.client.post<LoginResponse>("/auth/login", {
         username,
         password,
       });
 
       console.log("Login successful");
-      const { data } = response;
-      this.jwtToken = data.access_token;
-      await storeJwt(data.access_token, data.refresh_token);
-      return data;
+      return response.data;
     } catch (error: any) {
-      console.error(
-        "Login Error details:",
-        error.response?.data || error.message || error,
-      );
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
+      console.error("Login Error details:", error.response?.data || error.message || error);
+      if (isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Login failed, invalid credentials");
       }
       throw new Error("Login failed");
@@ -121,19 +138,12 @@ class API {
 
   public async extendSession(): Promise<ExtendSessionResponse> {
     try {
-      // Backend: AuthController @Post('refresh')
-      // Note: Make sure your interceptor sends the correct Refresh Token for this endpoint
-      const response = await this.client.post<ExtendSessionResponse>(
-        "/auth/refresh",
-        {},
-      );
+      const response = await this.client.post<ExtendSessionResponse>("/auth/refresh", {});
 
       console.log("Session extension successful");
-      const { data } = response;
-      await storeJwt(data.access_token, data.refresh_token);
-      return data;
+      return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
+      if (isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Session extension failed, invalid token");
       }
       console.log("?");
@@ -145,7 +155,6 @@ class API {
   public async logout(): Promise<void> {
     try {
       await this.client.post("/auth/logout", {});
-      await clearJwt();
     } catch (error) {
       console.error("Logout failed", error);
     }
@@ -155,11 +164,8 @@ class API {
   //////////// USER REQUESTS ////////////
   ///////////////////////////////////////
 
-  // Note: The backend UsersController only exposes methods for the CURRENT user (@Req() req).
-  // It does not seem to support fetching a list of other users by ID array yet.
   public async getUserData(users: string[]): Promise<UserMetadata[]> {
     try {
-      // Send the array of usernames to our new backend endpoint
       const response = await this.client.post<UserMetadata[]>("/user/batch", {
         usernames: users,
       });
@@ -173,8 +179,6 @@ class API {
 
   public async getMyProfile(): Promise<UserMetadata> {
     try {
-      // Backend: UsersController @Get('meta')
-      // This endpoint extracts your ID from the JWT token and returns your User object
       const response = await this.client.get<UserMetadata>("/user/meta");
 
       console.log("Retrieved personal profile");
@@ -184,52 +188,34 @@ class API {
     }
   }
 
-  public async postNewUserData(newUserData: {
-    username: string;
-  }): Promise<UserMetadata> {
+  public async postNewUserData(newUserData: { username: string }): Promise<UserMetadata> {
     try {
-      // Backend: UsersController @Patch('meta')
-      const response = await this.client.patch<UserMetadata>(
-        "/user/meta",
-        newUserData,
-      );
+      const response = await this.client.patch<UserMetadata>("/user/meta", newUserData);
       console.log("User data modification successful");
       console.log(response.data);
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
+      if (isAxiosError(error) && error.response?.status === 401) {
         throw new Error("User data modification failed, invalid token");
       }
       throw new Error("User data modification failed");
     }
   }
 
-  /* // NOT IMPLEMENTED IN BACKEND: UsersController
-  public async postPushToken(pushTokenString: String) {
-     ...
-  } 
-  */
-
   //////////////////////////////////////////
   //////////// CHANNEL REQUESTS ////////////
   //////////////////////////////////////////
 
-  public async createNewChannel(
-    newChannelData: NewChannelData,
-  ): Promise<number> {
+  public async createNewChannel(newChannelData: NewChannelData): Promise<number> {
     try {
-      // Backend: ChannelsController @Post() -> path /protected/channels
-      const response = await this.client.post<number>(
-        "/protected/channels",
-        newChannelData,
-      );
+      const response = await this.client.post<number>("/protected/channels", newChannelData);
       console.log("Channel creation successful");
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
+      if (isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Channel creation failed, invalid token");
       }
-      if (axios.isAxiosError(error) && error.response?.status === 409) {
+      if (isAxiosError(error) && error.response?.status === 409) {
         throw new Error("Channel name already taken");
       }
       throw new Error("Channel creation failed");
@@ -238,75 +224,52 @@ class API {
 
   public async deleteChannel(channelId: number): Promise<string> {
     try {
-      // Backend: ChannelsController @Delete(':channel_id')
       await this.client.delete(`/protected/channels/${channelId}`);
       console.log("Channel deletion successful");
       return "deleted";
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
+      if (isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Channel deletion failed, invalid token");
       }
       throw new Error("Channel deletion failed");
     }
   }
 
-  public async addUserToChannel(
-    channelId: number,
-    userId: string | number,
-  ): Promise<string> {
+  public async addUserToChannel(channelId: number, userId: string | number): Promise<string> {
     try {
-      // Backend: ChannelsController @Put(':channel_id/user/:user_id')
-      await this.client.put(
-        `/protected/channels/${channelId}/user/${userId}`,
-        {},
-      );
+      await this.client.put(`/protected/channels/${channelId}/user/${userId}`, {});
       console.log("User added to channel");
       return "added";
     } catch (error) {
       console.error(error);
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
+      if (isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Can't add user to channel, invalid token");
       }
       throw new Error("Can't add user to channel");
     }
   }
 
-  public async banUserFromChannel(
-    channelId: number,
-    userId: string | number,
-  ): Promise<string> {
+  public async banUserFromChannel(channelId: number, userId: string | number): Promise<string> {
     try {
-      // Backend: ChannelsController @Delete(':channel_id/user/:user_id')
-      await this.client.delete(
-        `/protected/channels/${channelId}/user/${userId}`,
-      );
+      await this.client.delete(`/protected/channels/${channelId}/user/${userId}`);
       console.log("User removed from channel");
       return "removed";
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
+      if (isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Can't remove user from channel, invalid token");
       }
       throw new Error("Can't remove user from channel");
     }
   }
 
-  public async updateChannel(
-    channelId: number,
-    newChannelData: ChannelUpdateMetadata,
-  ): Promise<string> {
+  public async updateChannel(channelId: number, newChannelData: ChannelUpdateMetadata): Promise<string> {
     try {
-      // Backend: ChannelsController @Put(':channel_id/update_metadata')
-      await this.client.put(
-        `/protected/channels/${channelId}/update_metadata`,
-        newChannelData,
-      );
+      await this.client.put(`/protected/channels/${channelId}/update_metadata`, newChannelData);
       console.log("Channel updated");
       return "updated";
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        throw new Error(
-          "Can't update channel, you don't have permissions to perform this action",
-        );
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Can't update channel, you don't have permissions to perform this action");
       }
       throw new Error("Can't update channel");
     }
@@ -314,82 +277,47 @@ class API {
 
   public async getChannels(): Promise<ChannelMetadata[]> {
     try {
-      // Backend: ChannelsController @Get() -> path /protected/channels
-      const response =
-        await this.client.get<ChannelMetadata[]>(`/protected/channels`);
+      const response = await this.client.get<ChannelMetadata[]>(`/protected/channels`);
       console.log("Channels retrieved");
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
+      if (isAxiosError(error) && error.response?.status === 401) {
         throw new Error("Can't get channels, invalid token");
       }
       throw new Error(`Can't get channels : ${error}`);
     }
   }
 
-  /*
-  // NOT IMPLEMENTED IN BACKEND: ChannelsController
-  public async createInvite(channelId: number): Promise<string> { ... }
-  public async useInvite(UUID: String): Promise<String> { ... }
-  */
-
   ///////////////////////////////////////////
   //////////// MESSAGES REQUESTS ////////////
   ///////////////////////////////////////////
 
-  public async getMessages(
-    channelId: number,
-    batchOffset: number,
-  ): Promise<ModifiedMessageMetadata[]> {
+  public async getMessages(channelId: number, batchOffset: number): Promise<ModifiedMessageMetadata[]> {
     try {
-      // Backend: ChannelsController @Get(':channel_id/messages')
-      // NOTE: The current backend controller does NOT accept 'batchOffset'.
-      // It returns the full history. You need to update the backend to support pagination.
-      const response = await this.client.get<ModifiedMessageMetadata[]>(
-        `/protected/channels/${channelId}/messages`,
-      );
+      const response = await this.client.get<ModifiedMessageMetadata[]>(`/protected/channels/${channelId}/messages`);
       console.log("Messages retrieved");
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        throw new Error(
-          "Can't get messages, user does not have permission to use this channel",
-        );
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Can't get messages, user does not have permission to use this channel");
       }
       throw new Error("Can't get messages");
     }
   }
 
-  public async sendMessage(
-    channelId: number,
-    newMessage: NewMessageData,
-  ): Promise<string> {
+  public async sendMessage(channelId: number, newMessage: NewMessageData): Promise<string> {
     try {
-      // Backend: ChannelsController @Post(':channel_id/messages')
-      // Note the plural 'messages' in the path
       console.log(newMessage);
-      await this.client.post(
-        `/protected/channels/${channelId}/messages`,
-        newMessage,
-      );
+      await this.client.post(`/protected/channels/${channelId}/messages`, newMessage);
       console.log("Message sent");
       return "sent";
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        throw new Error(
-          "Can't send message, user does not have permission to use this channel",
-        );
-      } else if (axios.isAxiosError(error) && error.response?.status === 400) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Can't send message, user does not have permission to use this channel");
+      } else if (isAxiosError(error) && error.response?.status === 400) {
         throw new Error("please let me log");
       }
       throw new Error("Can't send message: " + error);
     }
   }
-
-  /*
-  // NOT IMPLEMENTED IN BACKEND: ChannelsController (No moderate/update message endpoint)
-  public async updateMessage(channelId: number, messageUpdate: MessageMetadata): Promise<string> { ... }
-  */
 }
-
-export default new API();

@@ -1,25 +1,37 @@
+// app/(tabs)/_layout.tsx
+import { RootState } from "@/store";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { Tabs } from "expo-router";
-import React from "react";
+import { Tabs, useRouter } from "expo-router";
+import React, { useEffect } from "react";
+import { useSelector } from "react-redux";
 
 import { useClientOnlyValue } from "@/components/useClientOnlyValue";
 import { useColorScheme } from "@/components/useColorScheme";
 import Colors from "@/constants/Colors";
 
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: { name: React.ComponentProps<typeof FontAwesome>["name"]; color: string }) {
   return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
 }
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  console.log("On stack tabs");
+  const router = useRouter();
+
+  const accounts = useSelector((state: RootState) => state.servers.accounts);
+
+  useEffect(() => {
+    if (Object.keys(accounts).length === 0) {
+      const timer = setTimeout(() => {
+        router.push("/add-server");
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [accounts, router]);
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),
       }}
     >
@@ -28,9 +40,16 @@ export default function TabLayout() {
         options={{
           title: "Connected",
           headerShown: false,
-          // This removes the button from the bottom navbar
-          href: null,
+          href: null, // Hidden from bottom bar
           tabBarIcon: ({ color }) => <TabBarIcon name="bell" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="channelSelectionPage"
+        options={{
+          title: "Channels",
+          headerShown: false,
+          tabBarIcon: ({ color }) => <TabBarIcon name="comments" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -41,18 +60,19 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="plus" color={color} />,
         }}
       />
+      {/* NEW: The Manage Servers Tab */}
       <Tabs.Screen
-        name="channelSelectionPage"
+        name="manageServers"
         options={{
-          title: "Select",
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
+          title: "Servers",
+          tabBarIcon: ({ color }) => <TabBarIcon name="server" color={color} />,
         }}
       />
       <Tabs.Screen
         name="userProfile"
         options={{
-          title: "User",
+          title: "Profile",
           headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
