@@ -1,20 +1,20 @@
 // app/(tabs)/manageServers.tsx
 import Colors from "@/constants/Colors";
-import { RootState } from "@/store";
-import { API } from "@/utils/api";
+import { AppDispatch, RootState } from "@/store";
+import { removeServerAndToken } from "@/store/serverThunks";
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, useColorScheme, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
-import { removeServer, updateServerNickname } from "../../store/serversSlice";
+import { updateServerNickname } from "../../store/serversSlice";
 
 export default function ManageServersPage() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
   const router = useRouter();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   const accounts = useSelector((state: RootState) => state.servers.accounts);
   const serverList = Object.values(accounts);
@@ -43,13 +43,7 @@ export default function ManageServersPage() {
         onPress: async () => {
           try {
             // 1. Attempt to tell the backend we are leaving
-            const server = accounts[serverId];
-            const apiClient = new API(serverId);
-            await apiClient.logout().catch(() => console.log("Server already unreachable"));
-
-            // 2. Remove from Redux
-            dispatch(removeServer(serverId));
-
+            dispatch(removeServerAndToken(serverId));
             // 3. If no servers left, go to login
             if (Object.keys(accounts).length <= 1) {
               router.replace("/add-server");

@@ -11,6 +11,7 @@ export interface ServerAccount {
   refreshToken: string;
   status: ServerStatus;
   channels: any[];
+  pushToken?: string;
 }
 
 const serversSlice = createSlice({
@@ -54,6 +55,12 @@ const serversSlice = createSlice({
     removeServer: (state, action: PayloadAction<string>) => {
       delete state.accounts[action.payload];
     },
+    setServerPushToken: (state, action: PayloadAction<{ serverId: string; token: string }>) => {
+      const server = state.accounts[action.payload.serverId];
+      if (server) {
+        server.pushToken = action.payload.token;
+      }
+    },
   },
 });
 
@@ -65,6 +72,7 @@ export const {
   setServerChannels,
   updateServerNickname,
   removeServer,
+  setServerPushToken,
 } = serversSlice.actions;
 
 export default serversSlice.reducer;

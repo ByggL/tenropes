@@ -1,6 +1,6 @@
 // utils/notifications.ts
-import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 
 let notificationsRefused = false;
 let activeChannelId: string | null = null;
@@ -13,56 +13,42 @@ export const resetNotificationConfig = () => {
   activeChannelId = null;
 };
 
-export const pullAndPostToken = async () => {
-  Notifications.setNotificationHandler(null as any);
+// 1. Initialisation globale du comportement au premier plan
+Notifications.setNotificationHandler({
+  handleNotification: async (notification) => {
+    console.log("--- HANDLER TRIGGERED ---");
 
-  const projectId =
-    Constants?.expoConfig?.extra?.eas?.projectId ??
-    Constants?.easConfig?.projectId;
+    const data = notification.request.content.data;
+    const incomingChannelId = data?.channel_id?.toString();
 
-  if (!projectId) {
-    console.error("Problem with project id");
-    return;
-  }
+    console.log("Active:", activeChannelId, "Incoming:", incomingChannelId);
 
-  try {
-    const tokenRequest = await Notifications.getExpoPushTokenAsync({
-      projectId,
-    });
-    const pushTokenString = tokenRequest.data;
+    // Si on est déjà dans le channel du message, on bloque la notif visuelle/sonore
+    const shouldDisplay = activeChannelId !== incomingChannelId;
 
-    // await api.postPushToken(pushTokenString);
-
-    Notifications.setNotificationHandler({
-      handleNotification: async (notification) => {
-        // Log immédiat pour vérifier si le handler est touché
-        console.log("--- HANDLER TRIGGERED ---");
-
-        const data = notification.request.content.data;
-        const incomingChannelId = data?.channel_id?.toString();
-
-        // On log les variables de comparaison
-        console.log("Active:", activeChannelId, "Incoming:", incomingChannelId);
-        console.log("Full Data:", JSON.stringify(data, null, 2));
-
-        const shouldDisplay = activeChannelId !== incomingChannelId;
-
-        return {
-          shouldPlaySound: shouldDisplay,
-          shouldSetBadge: shouldDisplay,
-          shouldShowBanner: shouldDisplay,
-          shouldShowList: shouldDisplay,
-          priority: Notifications.AndroidNotificationPriority.HIGH,
-        };
-      },
-    });
-  } catch (e) {
-    console.error("Error notifications:", e);
-  }
-};
+    return {
+      shouldPlaySound: shouldDisplay,
+      shouldSetBadge: shouldDisplay,
+      shouldShowAlert: shouldDisplay,
+      // Si tu as des erreurs TS sur Banner/List, garde uniquement shouldShowAlert
+      shouldShowBanner: shouldDisplay,
+      shouldShowList: shouldDisplay,
+    };
+  },
+});
 
 export const getNotificationsPermission = async () => {
   if (notificationsRefused) return false;
+
+  // 2. Configuration spécifique Android pour forcer le volet (Heads-up)
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("tenropes-messages", {
+      name: "Messages",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#FF231F7C",
+    });
+  }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
@@ -76,5 +62,5 @@ export const getNotificationsPermission = async () => {
     notificationsRefused = true;
     return false;
   }
-  return true; // Retourne true si on a les perms
+  return true;
 };
