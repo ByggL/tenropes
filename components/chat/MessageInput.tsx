@@ -1,18 +1,29 @@
 import { ChannelMetadata } from "@/types/types";
 import { optimizeThemeForReadability } from "@/utils/utils";
-import React from "react";
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import React, { useState } from "react";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type MessageInputProps = {
   channel: ChannelMetadata;
   inputText: string;
   setInputText: React.Dispatch<React.SetStateAction<string>>;
-  handleSend: () => void;
+  handleSend: (imageFile?: File | Blob) => void;
 };
 
 export default function MessageInput({ channel, inputText, setInputText, handleSend }: MessageInputProps) {
   const insets = useSafeAreaInsets();
+  const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
   const theme = channel?.theme
     ? optimizeThemeForReadability(channel.theme)
@@ -24,16 +35,42 @@ export default function MessageInput({ channel, inputText, setInputText, handleS
         accent_text_color: "#FFFFFF",
       };
 
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setSelectedImage(result.assets[0]);
+    }
+  };
+
+  const onSendInternal = () => {
+    handleSend(selectedImage?.file || undefined);
+    setSelectedImage(null);
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 60}
-      style={{ paddingTop: insets.top }}
+      style={{ paddingBottom: insets.bottom }}
     >
+      {selectedImage && (
+        <View style={styles.previewContainer}>
+          <Image source={{ uri: selectedImage?.uri }} style={styles.imagePreview} />
+          <TouchableOpacity style={styles.removeImageButton} onPress={() => setSelectedImage(null)}>
+            <Text style={styles.removeImageText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={[styles.inputContainer, { backgroundColor: theme.primary_color }]}>
-        {/* <TouchableOpacity style={styles.attachButton}>
-          <Text style={{ color: theme.accent_color, fontSize: 20 }}>+</Text>
-        </TouchableOpacity> */}
+        <TouchableOpacity style={styles.attachButton} onPress={pickImage}>
+          <Text style={{ color: theme.accent_color, fontSize: 24 }}>+</Text>
+        </TouchableOpacity>
 
         <TextInput
           style={[
@@ -47,11 +84,11 @@ export default function MessageInput({ channel, inputText, setInputText, handleS
           placeholderTextColor="#72767d"
           value={inputText}
           onChangeText={setInputText}
-          onSubmitEditing={handleSend}
+          onSubmitEditing={onSendInternal}
         />
 
-        <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
-          <Text style={{ color: theme.accent_color, fontWeight: "bold" }}>→</Text>
+        <TouchableOpacity onPress={onSendInternal} style={styles.sendButton}>
+          <Text style={{ color: theme.accent_color, fontWeight: "bold", fontSize: 20 }}>→</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -59,18 +96,32 @@ export default function MessageInput({ channel, inputText, setInputText, handleS
 }
 
 const styles = StyleSheet.create({
-  imageAttachment: {
-    // width: 280,
-    // height: 180,
-    borderRadius: 8,
-    marginTop: 6,
-    backgroundColor: "#202225",
-    overflow: "hidden",
-    maxWidth: "100%",
+  previewContainer: {
+    padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 16,
   },
-  messageText: {
-    fontSize: 15,
-    lineHeight: 20,
+  imagePreview: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 5,
+    left: 65,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removeImageText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
   },
   inputContainer: {
     flexDirection: "row",
@@ -78,6 +129,7 @@ const styles = StyleSheet.create({
     padding: 10,
     margin: 16,
     borderRadius: 8,
+    marginTop: 0,
   },
   attachButton: {
     width: 30,

@@ -320,4 +320,26 @@ export class API {
       throw new Error("Can't send message: " + error);
     }
   }
+
+  public async uploadImage(imageFile: File | Blob): Promise<string> {
+    try {
+      const formData = new FormData();
+
+      formData.append("file", imageFile);
+
+      const response = await this.client.post<string>(`/protected/uploads/image`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      console.log("Image uploaded");
+
+      return response.data;
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Can't upload image, user does not have permission to use this channel");
+      }
+      throw new Error("Can't upload image: " + error);
+    }
+  }
 }

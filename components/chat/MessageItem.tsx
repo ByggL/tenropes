@@ -13,7 +13,7 @@ import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import ImageAttachment from "./ImageAttachment";
 
-type MessageInputProps = {
+type MessageItemProps = {
   item: ModifiedMessageMetadata;
   index: number;
   channel: ChannelMetadata;
@@ -27,7 +27,7 @@ export default function MessageItem({
   channel,
   messages,
   members,
-}: MessageInputProps) {
+}: MessageItemProps) {
   const theme = channel?.theme
     ? optimizeThemeForReadability(channel.theme)
     : {

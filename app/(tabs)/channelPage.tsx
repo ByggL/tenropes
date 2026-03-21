@@ -66,8 +66,8 @@ export default function ChatChannel() {
         primary_color: "#333",
       };
 
-  const onSendPress = async () => {
-    await sendMessage(inputText);
+  const onSendPress = async (imageUri?: string) => {
+    await sendMessage(inputText, imageUri);
     setInputText("");
   };
 
