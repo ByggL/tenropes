@@ -1,13 +1,16 @@
 // app/(tabs)/_layout.tsx
-import { RootState } from "@/store";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { Tabs, useRouter } from "expo-router";
-import React, { useEffect } from "react";
-import { useSelector } from "react-redux";
-
 import { useClientOnlyValue } from "@/components/useClientOnlyValue";
 import { useColorScheme } from "@/components/useColorScheme";
 import Colors from "@/constants/Colors";
+import { AppDispatch, RootState } from "@/store";
+import { registerPushToken } from "@/store/serverThunks";
+import { getNotificationsPermission } from "@/utils/notifications";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import Constants from "expo-constants";
+import * as Notifications from "expo-notifications";
+import { Tabs, useRouter } from "expo-router";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 
 function TabBarIcon(props: { name: React.ComponentProps<typeof FontAwesome>["name"]; color: string }) {
   return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
@@ -16,8 +19,36 @@ function TabBarIcon(props: { name: React.ComponentProps<typeof FontAwesome>["nam
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
-
+  const dispatch = useDispatch<AppDispatch>();
   const accounts = useSelector((state: RootState) => state.servers.accounts);
+
+  useEffect(() => {
+    const syncPushTokens = async () => {
+      const hasPermission = await getNotificationsPermission();
+      if (!hasPermission) return;
+
+      const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+      if (!projectId) return;
+
+      try {
+        const tokenRequest = await Notifications.getExpoPushTokenAsync({ projectId });
+        const expoToken = tokenRequest.data;
+
+        // La vue délègue la complexité à Redux
+        Object.values(accounts).forEach((server) => {
+          if (server.status === "CONNECTED" && server.pushToken !== expoToken) {
+            dispatch(registerPushToken({ serverId: server.serverId, expoToken }));
+          }
+        });
+      } catch (error) {
+        console.error("Erreur récupération Expo Push Token:", error);
+      }
+    };
+
+    if (Object.keys(accounts).length > 0) {
+      syncPushTokens();
+    }
+  }, [accounts, dispatch]);
 
   useEffect(() => {
     if (Object.keys(accounts).length === 0) {

@@ -29,7 +29,7 @@ export default function AddServerModal() {
   const accounts = useSelector((state: RootState) => state.servers?.accounts || {});
   const hasServers = Object.keys(accounts).length > 0;
 
-  const [serverUrl, setServerUrl] = useState("http://100.107.209.76:3000");
+  const [serverUrl, setServerUrl] = useState("http://example.fr");
   const [nickname, setNickname] = useState("My Server");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");

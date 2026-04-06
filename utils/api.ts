@@ -201,6 +201,34 @@ export class API {
       throw new Error("User data modification failed");
     }
   }
+  //////////////////////////////////////////
+  //////////// NOTIF SETUP REQUESTS ////////
+  //////////////////////////////////////////
+
+  public async postPushToken(token: string): Promise<void> {
+    try {
+      // L'intercepteur Axios va automatiquement injecter le Bearer token
+      // car l'URL contient "user" (via config.url?.includes("/user"))
+      await this.client.post("/user/push-token", { token });
+
+      console.log("Push token registered successfully");
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Push token registration failed, invalid session token");
+      }
+      throw new Error("Push token registration failed: " + error);
+    }
+  }
+
+  public async removePushToken(token: string): Promise<void> {
+    try {
+      // Axios accepte un body dans une requête DELETE via la propriété 'data'
+      await this.client.delete("/user/push-token", { data: { token } });
+      console.log(`Push token removed successfully from server from ${this.serverUrl}`);
+    } catch (error) {
+      console.error("Failed to remove push token:", error);
+    }
+  }
 
   //////////////////////////////////////////
   //////////// CHANNEL REQUESTS ////////////
