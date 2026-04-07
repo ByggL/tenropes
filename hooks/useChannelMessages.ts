@@ -92,17 +92,36 @@ export function useChannelMessages(
     }
   };
 
-  const sendMessage = async (content: string) => {
-    if (!channel || !content.trim() || !serverUrl) return;
-
-    const isImageLink = isImgUrl(content);
+  const sendMessage = async (content: string, imageFile?: File | Blob) => {
+    if (!channel || (!content.trim() && !imageFile) || !serverUrl) return;
 
     try {
       const apiClient = new API(serverUrl);
+      let messageContent = content;
+      let messageType: "Text" | "Image" = "Text";
+
+      if (imageFile) {
+        // if there is an image to upload, upload it then send the url of the uploaded image as message
+        const uploadedImageUrl = await apiClient.uploadImage(imageFile);
+        messageContent = formatImgUrl(uploadedImageUrl);
+        messageType = "Image";
+      } else if (isImgUrl(content)) {
+        messageContent = formatImgUrl(content);
+        messageType = "Image";
+      }
+
       await apiClient.sendMessage(channel.id, {
-        type: isImageLink ? "Image" : "Text",
-        content: isImageLink ? formatImgUrl(content) : content,
+        type: messageType,
+        content: messageContent,
       });
+
+      // if there both image and text, send text as a follow-up message
+      if (imageFile && content.trim()) {
+        await apiClient.sendMessage(channel.id, {
+          type: "Text",
+          content: content,
+        });
+      }
     } catch (error) {
       console.error("Failed to send message", error);
     }

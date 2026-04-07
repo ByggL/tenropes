@@ -66,8 +66,8 @@ export default function ChatChannel() {
         primary_color: "#333",
       };
 
-  const onSendPress = async () => {
-    await sendMessage(inputText);
+  const onSendPress = async (imageFile?: File | Blob | undefined) => {
+    await sendMessage(inputText, imageFile);
     setInputText("");
   };
 
