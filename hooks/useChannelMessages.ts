@@ -31,6 +31,7 @@ export function useChannelMessages(
 
       apiClient.getMessages(channel.id, 0).then((initialMessages) => {
         // inverted because we want newest message at the start of the array
+        initialMessages.forEach((message) => console.log(message.type, " - ", message.content));
         setMessages(initialMessages.reverse());
       });
 
@@ -92,7 +93,7 @@ export function useChannelMessages(
     }
   };
 
-  const sendMessage = async (content: string, imageFile?: File | Blob) => {
+  const sendMessage = async (content: string, imageFile?: File | Blob | string) => {
     if (!channel || (!content.trim() && !imageFile) || !serverUrl) return;
 
     try {
@@ -102,14 +103,16 @@ export function useChannelMessages(
 
       if (imageFile) {
         // if there is an image to upload, upload it then send the url of the uploaded image as message
+        console.log("There is an image file");
         const uploadedImageUrl = await apiClient.uploadImage(imageFile);
-        messageContent = formatImgUrl(uploadedImageUrl);
+        messageContent = formatImgUrl(uploadedImageUrl.url);
         messageType = "Image";
       } else if (isImgUrl(content)) {
         messageContent = formatImgUrl(content);
         messageType = "Image";
       }
 
+      console.log(messageType, " - ", messageContent);
       await apiClient.sendMessage(channel.id, {
         type: messageType,
         content: messageContent,

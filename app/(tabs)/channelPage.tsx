@@ -66,7 +66,9 @@ export default function ChatChannel() {
         primary_color: "#333",
       };
 
-  const onSendPress = async (imageFile?: File | Blob | undefined) => {
+  const onSendPress = async (imageFile?: File | Blob | string | undefined) => {
+    if (imageFile) console.log("there is an image file dammit");
+    else console.log("fuck no image file");
     await sendMessage(inputText, imageFile);
     setInputText("");
   };
