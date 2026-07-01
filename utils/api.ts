@@ -114,6 +114,40 @@ export class API {
     }
   }
 
+  // --- Static register helper for the Add Server Modal ---
+  public static async registerServer(
+    serverUrl: string,
+    username: string,
+    password: string,
+    registrationCode?: string,
+  ): Promise<any> {
+    try {
+      const response = await axios.post(`${serverUrl}/auth/register`, {
+        username,
+        password,
+        registrationCode,
+      });
+      return response.data;
+    } catch (error: any) {
+      if (isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          throw new Error("Registration failed: Invalid or missing server invitation code");
+        }
+        if (error.response?.status === 409) {
+          throw new Error("Registration failed: Username already taken");
+        }
+        if (error.response?.data?.message) {
+          const errMsg = Array.isArray(error.response.data.message)
+            ? error.response.data.message.join(", ")
+            : error.response.data.message;
+          throw new Error(errMsg);
+        }
+      }
+      throw new Error("Registration failed");
+    }
+  }
+
+
   ///////////////////////////////////////
   //////////// AUTH REQUESTS ////////////
   ///////////////////////////////////////
@@ -322,7 +356,12 @@ export class API {
 
   public async getMessages(channelId: number, batchOffset: number): Promise<ModifiedMessageMetadata[]> {
     try {
-      const response = await this.client.get<ModifiedMessageMetadata[]>(`/protected/channels/${channelId}/messages`);
+      const response = await this.client.get<ModifiedMessageMetadata[]>(`/protected/channels/${channelId}/messages`, {
+        params: {
+          skip: batchOffset,
+          take: 40,
+        },
+      });
       console.log("Messages retrieved");
       return response.data;
     } catch (error) {
