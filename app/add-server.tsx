@@ -1,7 +1,7 @@
 // app/add-server.tsx
 import Colors from "@/constants/Colors";
 import { RootState } from "@/store";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -23,6 +23,9 @@ import { API } from "../utils/api";
 export default function AddServerModal() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const params = useLocalSearchParams();
+  const searchServerUrl = params.serverUrl as string;
+  const searchCode = params.token as string;
 
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
@@ -30,16 +33,81 @@ export default function AddServerModal() {
   const accounts = useSelector((state: RootState) => state.servers?.accounts || {});
   const hasServers = Object.keys(accounts).length > 0;
 
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [serverUrl, setServerUrl] = useState("http://example.fr");
+  const [mode, setMode] = useState<"login" | "register" | "invite">("login");
+  const [serverUrl, setServerUrl] = useState(searchServerUrl || "http://example.fr");
   const [nickname, setNickname] = useState("My Server");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [registrationCode, setRegistrationCode] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleConnect = async () => {
+    if (mode === "invite") {
+      if (!inviteLink) {
+        Alert.alert("Missing field", "Please enter the invite link.");
+        return;
+      }
+
+      let parsedServerUrl = "";
+      let parsedCode = "";
+
+      if (inviteLink.startsWith("tenropes://join-channel")) {
+        try {
+          const urlParts = inviteLink.split("?");
+          if (urlParts.length > 1) {
+            const query = urlParts[1];
+            const paramsList = query.split("&");
+            paramsList.forEach((p) => {
+              const [k, v] = p.split("=");
+              if (k === "serverUrl") parsedServerUrl = decodeURIComponent(v);
+              if (k === "token" || k === "code") parsedCode = v;
+            });
+          }
+        } catch {
+          // ignore
+        }
+      } else if (inviteLink.startsWith("tenropes://invite/")) {
+        try {
+          const parts = inviteLink.split("tenropes://invite/");
+          if (parts.length === 2) {
+            const parsedCode = parts[1].split("?")[0];
+            router.replace(`/invite/${parsedCode}`);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      } else if (inviteLink.includes("/invite/")) {
+        try {
+          const parts = inviteLink.split("/invite/");
+          if (parts.length === 2) {
+            parsedServerUrl = parts[0];
+            parsedCode = parts[1].split("?")[0];
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (parsedServerUrl && parsedCode) {
+        router.replace({
+          pathname: "/join-channel",
+          params: {
+            serverUrl: parsedServerUrl,
+            code: parsedCode,
+          },
+        });
+      } else {
+        Alert.alert(
+          "Invalid Link",
+          "Please enter a valid invite link (e.g., http://server/invite/code or tenropes://join-channel?serverUrl=...&code=...)."
+        );
+      }
+      return;
+    }
+
     if (!username || !password || !serverUrl) {
       Alert.alert("Missing fields", "Please fill in all the required fields.");
       return;
@@ -84,7 +152,17 @@ export default function AddServerModal() {
         Alert.alert("Success", "Account created successfully!");
       }
 
-      router.replace("/(tabs)/channelSelectionPage");
+      if (searchCode) {
+        router.replace({
+          pathname: "/join-channel",
+          params: {
+            serverUrl: cleanUrl,
+            code: searchCode,
+          },
+        });
+      } else {
+        router.replace("/(tabs)/channelSelectionPage");
+      }
     } catch (error: any) {
       const operationName = mode === "register" ? "Registration" : "Connection";
       Alert.alert(`${operationName} Failed`, error.message || "Check the URL, username, and password.");
@@ -101,12 +179,14 @@ export default function AddServerModal() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.formWrapper}>
           <Text style={[styles.title, { color: theme.text }]}>
-            {mode === "login" ? "Add a Server" : "Create Account"}
+            {mode === "login" ? "Add a Server" : mode === "register" ? "Create Account" : "Join Channel"}
           </Text>
           <Text style={[styles.subtitle, { color: theme.subText }]}>
             {mode === "login"
               ? "Connect to your Tenropes instance."
-              : "Register a new profile on a Tenropes server."}
+              : mode === "register"
+                ? "Register a new profile on a Tenropes server."
+                : "Paste an invite link to join a channel."}
           </Text>
 
           {/* Segmented Control Mode Switcher */}
@@ -143,81 +223,114 @@ export default function AddServerModal() {
                 Register
               </Text>
             </Pressable>
+            <Pressable
+              style={[
+                styles.segmentButton,
+                mode === "invite" && { backgroundColor: theme.primary || "#2f95dc" },
+              ]}
+              onPress={() => setMode("invite")}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  { color: mode === "invite" ? "#ffffff" : theme.text },
+                ]}
+              >
+                Join Invite
+              </Text>
+            </Pressable>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Server URL</Text>
-            <TextInput
-              placeholder="http://192.168.1..."
-              placeholderTextColor="#999"
-              value={serverUrl}
-              onChangeText={setServerUrl}
-              style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
-              autoCapitalize="none"
-            />
-          </View>
-
-          {mode === "register" && (
+          {mode === "invite" ? (
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>Server Invitation Code</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Invite Link</Text>
               <TextInput
-                placeholder="Secret code from host"
+                placeholder="tenropes://join-channel?..."
                 placeholderTextColor="#999"
-                value={registrationCode}
-                onChangeText={setRegistrationCode}
+                value={inviteLink}
+                onChangeText={setInviteLink}
                 style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
-          )}
+          ) : (
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Server URL</Text>
+                <TextInput
+                  placeholder="http://192.168.1..."
+                  placeholderTextColor="#999"
+                  value={serverUrl}
+                  onChangeText={setServerUrl}
+                  style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
+                  autoCapitalize="none"
+                />
+              </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Nickname</Text>
-            <TextInput
-              placeholder="Home Server"
-              placeholderTextColor="#999"
-              value={nickname}
-              onChangeText={setNickname}
-              style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
-            />
-          </View>
+              {mode === "register" && (
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: theme.text }]}>Server Invitation Code</Text>
+                  <TextInput
+                    placeholder="Secret code from host"
+                    placeholderTextColor="#999"
+                    value={registrationCode}
+                    onChangeText={setRegistrationCode}
+                    style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
+                    autoCapitalize="none"
+                  />
+                </View>
+              )}
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Username</Text>
-            <TextInput
-              placeholder="User"
-              placeholderTextColor="#999"
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
-            />
-          </View>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Nickname</Text>
+                <TextInput
+                  placeholder="Home Server"
+                  placeholderTextColor="#999"
+                  value={nickname}
+                  onChangeText={setNickname}
+                  style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
+                />
+              </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Password</Text>
-            <TextInput
-              placeholder="••••••••"
-              placeholderTextColor="#999"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
-            />
-          </View>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Username</Text>
+                <TextInput
+                  placeholder="User"
+                  placeholderTextColor="#999"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
+                />
+              </View>
 
-          {mode === "register" && (
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>Confirm Password</Text>
-              <TextInput
-                placeholder="••••••••"
-                placeholderTextColor="#999"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
-              />
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Password</Text>
+                <TextInput
+                  placeholder="••••••••"
+                  placeholderTextColor="#999"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
+                />
+              </View>
+
+              {mode === "register" && (
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: theme.text }]}>Confirm Password</Text>
+                  <TextInput
+                    placeholder="••••••••"
+                    placeholderTextColor="#999"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry
+                    style={[styles.input, { color: theme.text, borderColor: theme.border || "#ccc" }]}
+                  />
+                </View>
+              )}
+            </>
           )}
 
           <Pressable
@@ -232,7 +345,7 @@ export default function AddServerModal() {
               <ActivityIndicator color="#ffffff" />
             ) : (
               <Text style={styles.btnText}>
-                {mode === "login" ? "Connect to Server" : "Create & Connect"}
+                {mode === "login" ? "Connect to Server" : mode === "register" ? "Create & Connect" : "Join Channel"}
               </Text>
             )}
           </Pressable>

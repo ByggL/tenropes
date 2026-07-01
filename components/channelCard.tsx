@@ -11,6 +11,7 @@ import {
   Image,
   Modal,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -141,7 +142,24 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
     }
   };
 
-  const handleShare = async () => {};
+  const handleShare = async () => {
+    setLoading(true);
+    try {
+      const apiClient = new API(channelMetadata.serverUrl);
+      const link = await apiClient.createInvite(channelMetadata.id);
+      await Share.share({
+        message: `Join me in #${channelMetadata.name} on Tenropes! Here is your invite link: ${link}`,
+        url: link,
+        title: `Invite to ${channelMetadata.name}`,
+      });
+      setModalVisible(false);
+    } catch (error) {
+      console.error("Share failed", error);
+      Alert.alert("Error", "Could not share invite link.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async () => {
     try {

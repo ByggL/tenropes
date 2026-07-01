@@ -350,6 +350,40 @@ export class API {
     }
   }
 
+  public async createInvite(channelId: number): Promise<string> {
+    try {
+      const response = await this.client.post<{ code: string }>(`/protected/channels/${channelId}/invite`);
+      const code = response.data.code;
+      return `tenropes://invite/${code}`;
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Can't create invite, invalid token");
+      }
+      throw new Error(`Can't create invite : ${error}`);
+    }
+  }
+
+  public async checkInviteCode(code: string): Promise<{ exists: boolean; channelName: string; channelImg?: string }> {
+    try {
+      const response = await this.client.get<{ exists: boolean; channelName: string; channelImg?: string }>(`/invite/check/${code}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(`Can't check invite : ${error}`);
+    }
+  }
+
+  public async joinChannelByInvite(code: string): Promise<ChannelMetadata> {
+    try {
+      const response = await this.client.post<ChannelMetadata>(`/protected/channels/join-by-invite`, { code });
+      return response.data;
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw new Error("Can't join channel, invalid token");
+      }
+      throw new Error(`Can't join channel : ${error}`);
+    }
+  }
+
   ///////////////////////////////////////////
   //////////// MESSAGES REQUESTS ////////////
   ///////////////////////////////////////////

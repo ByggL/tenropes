@@ -21,9 +21,13 @@ export function useChannelAdmin(channel: ChannelMetadata | null, serverUrl: stri
         const state = store.getState();
         const currentUsername = state.servers?.accounts?.[serverUrl]?.username;
 
-        // @ts-ignore - Assuming channel.creator exists in your runtime data
-        if (currentUsername && currentUsername === channel.creator) {
-          setIsAdmin(true);
+        if (currentUsername && channel.members) {
+          const myMembership = channel.members.find(
+            (m) => m.user?.username === currentUsername
+          );
+          if (myMembership && myMembership.role === "admin") {
+            setIsAdmin(true);
+          }
         }
       } catch (error) {
         console.error("error checking admin status:", error);
