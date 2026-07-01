@@ -13,17 +13,19 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import KlipyGifPicker from "./GifPickerModal";
 
 type MessageInputProps = {
   channel: ChannelMetadata;
   inputText: string;
   setInputText: React.Dispatch<React.SetStateAction<string>>;
-  handleSend: (imageFile?: File | Blob | string) => void;
+  handleSend: (imageFile?: File | Blob | string | undefined, inputTextOverload?: string) => void;
 };
 
 export default function MessageInput({ channel, inputText, setInputText, handleSend }: MessageInputProps) {
   const insets = useSafeAreaInsets();
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [isGifPickerVisible, setGifPickerVisible] = useState<boolean>(false);
 
   const theme = channel?.theme
     ? optimizeThemeForReadability(channel.theme)
@@ -74,6 +76,9 @@ export default function MessageInput({ channel, inputText, setInputText, handleS
         <TouchableOpacity style={styles.attachButton} onPress={pickImage}>
           <Text style={{ color: theme.accent_color, fontSize: 24 }}>+</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.attachButton} onPress={() => setGifPickerVisible(true)}>
+          <Text style={{ color: theme.accent_color, fontSize: 14, fontWeight: "bold" }}>GIF</Text>
+        </TouchableOpacity>
 
         <TextInput
           style={[
@@ -93,6 +98,22 @@ export default function MessageInput({ channel, inputText, setInputText, handleS
         <TouchableOpacity onPress={onSendInternal} style={styles.sendButton}>
           <Text style={{ color: theme.accent_color, fontWeight: "bold", fontSize: 20 }}>→</Text>
         </TouchableOpacity>
+
+        <KlipyGifPicker
+          visible={isGifPickerVisible}
+          onClose={() => setGifPickerVisible(false)}
+          onSelect={(gif) => {
+            // traitement sélection, fermeture
+            // console.log(gif);
+            if (gif.file?.md?.gif?.url) {
+              console.log(gif.file?.md?.gif?.url);
+              // setInputText(gif.file?.md?.gif?.url);
+              handleSend(undefined, gif.file?.md?.gif?.url);
+            }
+
+            setGifPickerVisible(false);
+          }}
+        />
       </View>
     </KeyboardAvoidingView>
   );

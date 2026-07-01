@@ -21,30 +21,17 @@ export function useChannelMessages(
     console.log("Refreshing channel " + channel.id + " on server " + serverUrl);
     console.log(`[DEBUG FRONTEND] Fetching messages from: ${serverUrl}/protected/channels/${channel.id}/messages`);
 
-      setBatchOffset(0);
-      setHasMore(false);
-      setIsFetchingHistory(false);
-
-      // 1. Initialize API for this specific server
-      const apiClient = new API(serverUrl);
-
-      apiClient.getMessages(channel.id, 0).then((initialMessages) => {
-        // inverted because we want newest message at the start of the array
-        initialMessages.forEach((message) => console.log(message.type, " - ", message.content));
-        setMessages(initialMessages.reverse());
-      });
-
-      const usernamesToFetch = channel.members.map((m) => m.user.username);
-      apiClient.getUserData(usernamesToFetch).then((result) => setMembers(result));
+    setBatchOffset(0);
+    setHasMore(false);
+    setIsFetchingHistory(false);
 
     // 1. Initialize API for this specific server
     const apiClient = new API(serverUrl);
 
     apiClient.getMessages(channel.id, 0).then((initialMessages) => {
-      setMessages(initialMessages);
-      if (initialMessages.length < 40) {
-        setHasMore(false);
-      }
+      // inverted because we want newest message at the start of the array
+      initialMessages.forEach((message) => console.log(message.type, " - ", message.content));
+      setMessages(initialMessages.reverse());
     });
 
     const usernamesToFetch = channel.members.map((m) => m.user.username);
@@ -93,7 +80,9 @@ export function useChannelMessages(
     setIsFetchingHistory(true);
 
     try {
-      console.log(`[DEBUG FRONTEND] Fetching older messages from: ${serverUrl}/protected/channels/${channel.id}/messages`);
+      console.log(
+        `[DEBUG FRONTEND] Fetching older messages from: ${serverUrl}/protected/channels/${channel.id}/messages`,
+      );
       const apiClient = new API(serverUrl);
       const nextBatch = batchOffset + 40;
 
@@ -104,9 +93,7 @@ export function useChannelMessages(
       }
       if (olderMessages.length > 0) {
         setMessages((prev) => {
-          const uniqueOlderMessages = olderMessages.filter(
-            (msg) => !prev.some((pMsg) => pMsg.id === msg.id)
-          );
+          const uniqueOlderMessages = olderMessages.filter((msg) => !prev.some((pMsg) => pMsg.id === msg.id));
           return [...prev, ...uniqueOlderMessages];
         });
         setBatchOffset(nextBatch);
@@ -118,7 +105,7 @@ export function useChannelMessages(
     }
   };
 
-  const sendMessage = async (content: string, imageFile?: File | Blob | string) => {
+  const sendMessage = async (content: string, imageFile?: File | Blob | string | undefined) => {
     if (!channel || (!content.trim() && !imageFile) || !serverUrl) return;
 
     try {
