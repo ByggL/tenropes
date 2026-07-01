@@ -85,7 +85,7 @@ export default function ChatChannel() {
       />
       <FlatList
         data={messages}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item) => item.id.toString()}
         inverted={true}
         onEndReached={loadOlderMessages}
         renderItem={({ item, index }) => (

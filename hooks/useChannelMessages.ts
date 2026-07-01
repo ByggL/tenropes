@@ -2,8 +2,7 @@ import { store } from "@/store"; // Import Redux store to get the token for WebS
 import { ChannelMetadata, ModifiedMessageMetadata, UserMetadata } from "@/types/types";
 import { API } from "@/utils/api";
 import { formatImgUrl, isImgUrl } from "@/utils/utils";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
 export function useChannelMessages(
@@ -16,11 +15,11 @@ export function useChannelMessages(
   const [batchOffset, setBatchOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!channel || !serverUrl) return;
+  useEffect(() => {
+    if (!channel || !serverUrl) return;
 
-      console.log("Refreshing channel " + channel.id + " on server " + serverUrl);
+    console.log("Refreshing channel " + channel.id + " on server " + serverUrl);
+    console.log(`[DEBUG FRONTEND] Fetching messages from: ${serverUrl}/protected/channels/${channel.id}/messages`);
 
       setBatchOffset(0);
       setHasMore(false);
@@ -38,35 +37,55 @@ export function useChannelMessages(
       const usernamesToFetch = channel.members.map((m) => m.user.username);
       apiClient.getUserData(usernamesToFetch).then((result) => setMembers(result));
 
-      // --- SOCKET.IO IMPLEMENTATION ---
+    // 1. Initialize API for this specific server
+    const apiClient = new API(serverUrl);
 
-      // 2. Fetch the correct token for this server from Redux
-      const state = store.getState();
-      const token = state.servers?.accounts?.[serverUrl]?.accessToken;
+    apiClient.getMessages(channel.id, 0).then((initialMessages) => {
+      setMessages(initialMessages);
+      if (initialMessages.length < 40) {
+        setHasMore(false);
+      }
+    });
 
-      // 3. Connect to the dynamic serverUrl, NOT the hardcoded IP
-      const socket = io(serverUrl, {
-        auth: {
-          token: token,
-        },
+    const usernamesToFetch = channel.members.map((m) => m.user.username);
+    apiClient.getUserData(usernamesToFetch).then((result) => setMembers(result));
+
+    // --- SOCKET.IO IMPLEMENTATION ---
+
+    // 2. Fetch the correct token for this server from Redux
+    const state = store.getState();
+    const token = state.servers?.accounts?.[serverUrl]?.accessToken;
+
+    // 3. Connect to the dynamic serverUrl, NOT the hardcoded IP
+    console.log(`[DEBUG FRONTEND] Connecting Socket.IO to: ${serverUrl}`);
+    const socket = io(serverUrl, {
+      auth: {
+        token: token,
+      },
+      forceNew: true,
+      multiplex: false,
+    });
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.IO on " + serverUrl);
+      socket.emit("joinChannel", channel.id);
+    });
+
+    socket.on("message", (newMessage) => {
+      setMessages((prev) => {
+        if (prev.some((msg) => msg.id === newMessage.id)) {
+          return prev;
+        }
+        return [newMessage, ...prev];
       });
+    });
 
-      socket.on("connect", () => {
-        console.log("Connected to Socket.IO on " + serverUrl);
-        socket.emit("joinChannel", channel.id);
-      });
-
-      socket.on("message", (newMessage) => {
-        setMessages((prev) => [newMessage, ...prev]);
-      });
-
-      return () => {
-        console.log("Closing socket for channel " + channel.id);
-        socket.emit("leaveChannel", channel.id);
-        socket.disconnect();
-      };
-    }, [channel?.id, serverUrl]),
-  );
+    return () => {
+      console.log("Closing socket for channel " + channel.id);
+      socket.emit("leaveChannel", channel.id);
+      socket.disconnect();
+    };
+  }, [channel?.id, serverUrl]);
 
   const loadOlderMessages = async () => {
     if (isFetchingHistory || !hasMore || !serverUrl) return;
@@ -74,16 +93,22 @@ export function useChannelMessages(
     setIsFetchingHistory(true);
 
     try {
+      console.log(`[DEBUG FRONTEND] Fetching older messages from: ${serverUrl}/protected/channels/${channel.id}/messages`);
       const apiClient = new API(serverUrl);
       const nextBatch = batchOffset + 40;
 
       const olderMessages = await apiClient.getMessages(channel.id, nextBatch);
 
-      if (olderMessages.length === 0) {
+      if (olderMessages.length < 40) {
         setHasMore(false);
-      } else {
-        const reversedHistory = olderMessages.reverse();
-        setMessages((prev) => [...prev, ...reversedHistory]);
+      }
+      if (olderMessages.length > 0) {
+        setMessages((prev) => {
+          const uniqueOlderMessages = olderMessages.filter(
+            (msg) => !prev.some((pMsg) => pMsg.id === msg.id)
+          );
+          return [...prev, ...uniqueOlderMessages];
+        });
         setBatchOffset(nextBatch);
       }
     } catch (error) {
@@ -97,6 +122,7 @@ export function useChannelMessages(
     if (!channel || (!content.trim() && !imageFile) || !serverUrl) return;
 
     try {
+      console.log(`[DEBUG FRONTEND] Sending message to: ${serverUrl}/protected/channels/${channel.id}/messages`);
       const apiClient = new API(serverUrl);
       let messageContent = content;
       let messageType: "Text" | "Image" = "Text";
