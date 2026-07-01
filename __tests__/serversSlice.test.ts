@@ -191,4 +191,52 @@ describe("servers slice", () => {
     );
     expect(nextState.accounts["http://localhost:3000"].pushToken).toBe("push_token_xyz");
   });
+
+  describe("when server does not exist", () => {
+    it("should not crash and make no changes for updateTokens", () => {
+      const nextState = serversReducer(
+        initialState,
+        updateTokens({ serverId: "non-existent", accessToken: "a", refreshToken: "r" })
+      );
+      expect(nextState.accounts["non-existent"]).toBeUndefined();
+    });
+
+    it("should not crash and make no changes for markSessionExpired", () => {
+      const nextState = serversReducer(initialState, markSessionExpired("non-existent"));
+      expect(nextState.accounts["non-existent"]).toBeUndefined();
+    });
+
+    it("should not crash and make no changes for setServerStatus", () => {
+      const nextState = serversReducer(
+        initialState,
+        setServerStatus({ serverId: "non-existent", status: "CONNECTED" })
+      );
+      expect(nextState.accounts["non-existent"]).toBeUndefined();
+    });
+
+    it("should not crash and make no changes for setServerChannels", () => {
+      const nextState = serversReducer(
+        initialState,
+        setServerChannels({ serverId: "non-existent", channels: [] })
+      );
+      expect(nextState.accounts["non-existent"]).toBeUndefined();
+    });
+
+    it("should not crash and make no changes for updateServerNickname", () => {
+      const nextState = serversReducer(
+        initialState,
+        updateServerNickname({ serverId: "non-existent", newNickname: "Name" })
+      );
+      expect(nextState.accounts["non-existent"]).toBeUndefined();
+    });
+
+    it("should not crash and make no changes for setServerPushToken", () => {
+      const nextState = serversReducer(
+        initialState,
+        setServerPushToken({ serverId: "non-existent", token: "tok" })
+      );
+      expect(nextState.accounts["non-existent"]).toBeUndefined();
+    });
+  });
 });
+
