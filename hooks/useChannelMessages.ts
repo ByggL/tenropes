@@ -21,11 +21,21 @@ export function useChannelMessages(
     console.log("Refreshing channel " + channel.id + " on server " + serverUrl);
     console.log(`[DEBUG FRONTEND] Fetching messages from: ${serverUrl}/protected/channels/${channel.id}/messages`);
 
-    // Clear old messages and reset pagination when switching channel/server
-    setMessages([]);
-    setBatchOffset(0);
-    setHasMore(true);
-    setIsFetchingHistory(false);
+      setBatchOffset(0);
+      setHasMore(false);
+      setIsFetchingHistory(false);
+
+      // 1. Initialize API for this specific server
+      const apiClient = new API(serverUrl);
+
+      apiClient.getMessages(channel.id, 0).then((initialMessages) => {
+        // inverted because we want newest message at the start of the array
+        initialMessages.forEach((message) => console.log(message.type, " - ", message.content));
+        setMessages(initialMessages.reverse());
+      });
+
+      const usernamesToFetch = channel.members.map((m) => m.user.username);
+      apiClient.getUserData(usernamesToFetch).then((result) => setMembers(result));
 
     // 1. Initialize API for this specific server
     const apiClient = new API(serverUrl);
@@ -108,7 +118,7 @@ export function useChannelMessages(
     }
   };
 
-  const sendMessage = async (content: string, imageFile?: File | Blob) => {
+  const sendMessage = async (content: string, imageFile?: File | Blob | string) => {
     if (!channel || (!content.trim() && !imageFile) || !serverUrl) return;
 
     try {
@@ -119,14 +129,16 @@ export function useChannelMessages(
 
       if (imageFile) {
         // if there is an image to upload, upload it then send the url of the uploaded image as message
+        console.log("There is an image file");
         const uploadedImageUrl = await apiClient.uploadImage(imageFile);
-        messageContent = formatImgUrl(uploadedImageUrl);
+        messageContent = formatImgUrl(uploadedImageUrl.url);
         messageType = "Image";
       } else if (isImgUrl(content)) {
         messageContent = formatImgUrl(content);
         messageType = "Image";
       }
 
+      console.log(messageType, " - ", messageContent);
       await apiClient.sendMessage(channel.id, {
         type: messageType,
         content: messageContent,

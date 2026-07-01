@@ -18,7 +18,7 @@ type MessageInputProps = {
   channel: ChannelMetadata;
   inputText: string;
   setInputText: React.Dispatch<React.SetStateAction<string>>;
-  handleSend: (imageFile?: File | Blob) => void;
+  handleSend: (imageFile?: File | Blob | string) => void;
 };
 
 export default function MessageInput({ channel, inputText, setInputText, handleSend }: MessageInputProps) {
@@ -38,17 +38,20 @@ export default function MessageInput({ channel, inputText, setInputText, handleS
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      allowsEditing: true,
       quality: 1,
+      base64: true,
     });
 
     if (!result.canceled) {
       setSelectedImage(result.assets[0]);
+      console.log("Image selected");
     }
   };
 
   const onSendInternal = () => {
-    handleSend(selectedImage?.file || undefined);
+    console.log(selectedImage?.fileName || "No image to send because fuck you");
+    // console.log(JSON.stringify(selectedImage));
+    handleSend(selectedImage?.base64 || undefined);
     setSelectedImage(null);
   };
 

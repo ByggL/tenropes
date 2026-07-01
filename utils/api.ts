@@ -388,13 +388,13 @@ export class API {
     }
   }
 
-  public async uploadImage(imageFile: File | Blob): Promise<string> {
+  public async uploadImage(imageFile: File | Blob | string): Promise<any> {
     try {
       const formData = new FormData();
 
       formData.append("file", imageFile);
 
-      const response = await this.client.post<string>(`/protected/uploads/image`, formData, {
+      const response = await this.client.post<any>(`/protected/uploads/image`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },

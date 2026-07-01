@@ -11,7 +11,9 @@ export function isImgUrl(url: string) {
 }
 
 export function formatImgUrl(url: string) {
+  if (!url) throw new Error("Url is undefined");
   const match = url.match(/\.(jpg|jpeg|png|webp|avif|gif)/i);
+  // const match = ["jpg", "jpeg", "png", "webp", "avif", "gif"].some((i) => url.includes(i));
 
   if (match && match.index !== undefined) {
     return url.substring(0, match.index + match[0].length);
