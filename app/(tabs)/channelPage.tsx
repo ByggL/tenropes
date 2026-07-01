@@ -66,9 +66,15 @@ export default function ChatChannel() {
         primary_color: "#333",
       };
 
-  const onSendPress = async (imageFile?: File | Blob | string | undefined) => {
+  const onSendPress = async (imageFile?: File | Blob | string | undefined, inputTextOverload?: string) => {
     if (imageFile) console.log("there is an image file dammit");
-    else console.log("fuck no image file");
+    else console.log("no image file");
+
+    if (inputTextOverload && inputTextOverload != "") {
+      await sendMessage(inputTextOverload);
+      return;
+    }
+
     await sendMessage(inputText, imageFile);
     setInputText("");
   };
