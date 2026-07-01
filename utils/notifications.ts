@@ -11,6 +11,7 @@ export const setActiveChannel = (id: string | null) => {
 
 export const resetNotificationConfig = () => {
   activeChannelId = null;
+  notificationsRefused = false;
 };
 
 // 1. Initialisation globale du comportement au premier plan
