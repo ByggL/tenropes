@@ -1,11 +1,11 @@
 import axios from "axios";
-import { API } from "../utils/api";
-import { store } from "../store";
+import { API } from "../../utils/api";
+import { store } from "../../store";
 
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-jest.mock("../store", () => ({
+jest.mock("../../store", () => ({
   store: {
     getState: jest.fn(),
     dispatch: jest.fn(),

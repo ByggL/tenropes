@@ -5,7 +5,7 @@ import {
   formatTime,
   getUserFromName,
   isSameDay,
-} from "../utils/utils";
+} from "../../utils/utils";
 import { Theme, UserMetadata } from "@/types/types";
 
 describe("Utils Helper Functions", () => {

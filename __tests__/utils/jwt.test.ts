@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { storeJwt, getJwt, clearJwt } from "../utils/jwt";
+import { storeJwt, getJwt, clearJwt } from "../../utils/jwt";
 
 jest.mock("@react-native-async-storage/async-storage", () => {
   let store: Record<string, string> = {};

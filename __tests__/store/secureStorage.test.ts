@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import { secureStorage } from "../store/secureStorage";
+import { secureStorage } from "../../store/secureStorage";
 
 jest.mock("expo-secure-store", () => {
   let store: Record<string, string> = {};

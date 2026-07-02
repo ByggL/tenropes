@@ -8,7 +8,7 @@ import serversReducer, {
   removeServer,
   setServerPushToken,
   ServerAccount,
-} from "../store/serversSlice";
+} from "../../store/serversSlice";
 
 describe("servers slice", () => {
   const initialState = { accounts: {} as Record<string, ServerAccount> };

@@ -1,18 +1,18 @@
 import React from "react";
 import { act, create } from "react-test-renderer";
-import { useChannelAdmin } from "../hooks/useChannelAdmin";
-import { store } from "../store";
-import { API } from "../utils/api";
+import { useChannelAdmin } from "../../hooks/useChannelAdmin";
+import { store } from "../../store";
+import { API } from "../../utils/api";
 import { Alert, Share } from "react-native";
 
-jest.mock("../store", () => ({
+jest.mock("../../store", () => ({
   store: {
     getState: jest.fn(),
   },
 }));
 const mockedStore = store as jest.Mocked<typeof store>;
 
-jest.mock("../utils/api");
+jest.mock("../../utils/api");
 const MockedAPI = API as jest.MockedClass<typeof API>;
 const mockCreateInvite = jest.fn();
 // @ts-ignore

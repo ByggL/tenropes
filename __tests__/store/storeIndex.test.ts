@@ -1,4 +1,4 @@
-import { store, persistor } from "../store/index";
+import { store, persistor } from "../../store/index";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn().mockResolvedValue(null),

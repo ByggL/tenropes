@@ -1,9 +1,9 @@
-import { registerPushToken, removeServerAndToken } from "../store/serverThunks";
-import { API } from "../utils/api";
-import { removeServer, setServerPushToken } from "../store/serversSlice";
+import { registerPushToken, removeServerAndToken } from "../../store/serverThunks";
+import { API } from "../../utils/api";
+import { removeServer, setServerPushToken } from "../../store/serversSlice";
 
 // Mock API
-jest.mock("../utils/api");
+jest.mock("../../utils/api");
 const MockedAPI = API as jest.MockedClass<typeof API>;
 
 // Create mock API instance methods

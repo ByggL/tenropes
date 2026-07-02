@@ -1,12 +1,12 @@
 import React from "react";
 import { act, create } from "react-test-renderer";
-import { useChannelMessages } from "../hooks/useChannelMessages";
-import { store } from "../store";
-import { API } from "../utils/api";
+import { useChannelMessages } from "../../hooks/useChannelMessages";
+import { store } from "../../store";
+import { API } from "../../utils/api";
 import { io } from "socket.io-client";
 
 // Mock store
-jest.mock("../store", () => ({
+jest.mock("../../store", () => ({
   store: {
     getState: jest.fn(),
   },
@@ -14,7 +14,7 @@ jest.mock("../store", () => ({
 const mockedStore = store as jest.Mocked<typeof store>;
 
 // Mock API
-jest.mock("../utils/api");
+jest.mock("../../utils/api");
 const MockedAPI = API as jest.MockedClass<typeof API>;
 const mockGetMessages = jest.fn();
 const mockGetUserData = jest.fn();

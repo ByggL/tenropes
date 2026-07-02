@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { resetNotificationConfig, setActiveChannel, getNotificationsPermission } from "../utils/notifications";
+import { resetNotificationConfig, setActiveChannel, getNotificationsPermission } from "../../utils/notifications";
 
 let capturedHandler: any;
 
