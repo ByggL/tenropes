@@ -192,7 +192,7 @@ export function optimizeThemeForReadability(originalTheme: Theme): Theme {
 
 export function formatTime(timestamp: number) {
   const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
 export function getUserFromName(members: UserMetadata[], username: string) {
