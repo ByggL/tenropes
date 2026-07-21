@@ -95,7 +95,7 @@ export function optimizeThemeForReadability(originalTheme: Theme): Theme {
       r = x;
       g = 0;
       b = c;
-    } else if (300 <= h && h < 360) {
+    } else {
       r = c;
       g = 0;
       b = x;
@@ -154,7 +154,7 @@ export function optimizeThemeForReadability(originalTheme: Theme): Theme {
     }
 
     // fallback to black or white if subtle adjustment failed
-    return lighten ? "#FFFFFF" : "#000000";
+    return "#FFFFFF";
   };
 
   // OPTIMIZATIONS
@@ -192,7 +192,7 @@ export function optimizeThemeForReadability(originalTheme: Theme): Theme {
 
 export function formatTime(timestamp: number) {
   const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
 export function getUserFromName(members: UserMetadata[], username: string) {

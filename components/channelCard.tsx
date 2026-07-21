@@ -248,6 +248,7 @@ export default function ChannelCard({ channelMetadata, onUpdate }: ChannelCardPr
           </>
         );
 
+      /* istanbul ignore next -- unreachable: modalMode is never set to "shareChannel" (dead default arm) */
       default:
         return null;
     }
