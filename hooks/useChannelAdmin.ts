@@ -1,4 +1,4 @@
-import { store } from "@/store"; // Import Redux store to get the current user
+import { store } from "@/store";
 import { ChannelMetadata } from "@/types/types";
 import { API } from "@/utils/api";
 import { useCallback, useEffect, useState } from "react";
@@ -17,14 +17,23 @@ export function useChannelAdmin(channel: ChannelMetadata | null, serverUrl: stri
 
     const checkAdmin = async () => {
       try {
-        // Read the username for THIS specific server directly from Redux
         const state = store.getState();
         const currentUsername = state.servers?.accounts?.[serverUrl]?.username;
 
-        // @ts-ignore - Assuming channel.creator exists in your runtime data
-        if (currentUsername && currentUsername === channel.creator) {
-          setIsAdmin(true);
+        if (!currentUsername || !channel) {
+          setIsAdmin(false);
+          return;
         }
+
+        const memberRole = channel.members?.find((m) => m.user?.username === currentUsername)?.role;
+
+        const isUserAdmin =
+          memberRole === "admin" ||
+          memberRole === "creator" ||
+          (channel as any).creator === currentUsername ||
+          (channel as any).creator?.username === currentUsername;
+
+        setIsAdmin(Boolean(isUserAdmin));
       } catch (error) {
         console.error("error checking admin status:", error);
       }
@@ -42,7 +51,6 @@ export function useChannelAdmin(channel: ChannelMetadata | null, serverUrl: stri
     setIsLoadingQr(true);
     try {
       const apiClient = new API(serverUrl);
-      // @ts-ignore - Ensure createInvite is uncommented/implemented in your api.ts!
       const link = await apiClient.createInvite(channel.id);
       console.log("Generated QR invite link:", link);
       setQrInviteLink(link);
@@ -62,7 +70,6 @@ export function useChannelAdmin(channel: ChannelMetadata | null, serverUrl: stri
 
     try {
       const apiClient = new API(serverUrl);
-      // @ts-ignore - Ensure createInvite is uncommented/implemented in your api.ts!
       const link = await apiClient.createInvite(channel.id);
       const result = await Share.share({
         message: `Join me in #${channel.name} on Tenropes! Here is your invite link: ${link}`,
