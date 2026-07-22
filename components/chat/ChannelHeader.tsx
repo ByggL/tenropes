@@ -51,21 +51,21 @@ export default function ChannelHeader({
       <Text style={[styles.channelName, { color: theme.text_color, paddingLeft: 8 }]}>{channel?.name}</Text>
 
       {isAdmin ? (
-        <>
+        <View style={styles.adminButtonsContainer}>
           <TouchableOpacity
             onPress={handleShowQrCode}
-            style={[styles.headerAddButton, { marginRight: 8 }]} // Add margin to separate from the + button
+            style={styles.headerIconButton}
           >
             <Text style={{ color: theme.accent_color, fontSize: 24, fontWeight: "bold" }}>▣</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleShareInvite} style={styles.headerAddButton} disabled={isSharing}>
+          <TouchableOpacity onPress={handleShareInvite} style={styles.headerIconButton} disabled={isSharing}>
             {isSharing ? (
               <ActivityIndicator size="small" color={theme.accent_color} />
             ) : (
               <Text style={{ color: theme.accent_color, fontSize: 24, fontWeight: "bold" }}>+</Text>
             )}
           </TouchableOpacity>
-        </>
+        </View>
       ) : null}
     </View>
   );
@@ -99,9 +99,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-  headerAddButton: {
+  adminButtonsContainer: {
     marginLeft: "auto",
-    padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerIconButton: {
+    padding: 8,
+    marginLeft: 4,
   },
   avatar: {
     width: 40,

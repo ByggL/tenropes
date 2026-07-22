@@ -9,8 +9,6 @@ import {
   UserMetadata,
 } from "@/types/types";
 import axios, { AxiosInstance, isAxiosError } from "axios";
-
-// Make sure this path points to where you actually create your Redux store
 import { store } from "../store";
 import { markSessionExpired, updateTokens } from "../store/serversSlice";
 
@@ -30,7 +28,6 @@ export class API {
         config.headers["Content-Type"] = "application/json";
       }
 
-      // Fetch tokens directly from Redux for THIS specific server URL
       const state = store.getState();
       const account = state.servers?.accounts?.[this.serverUrl];
 
@@ -64,7 +61,6 @@ export class API {
 
             if (!account?.refreshToken) throw new Error("No refresh token available");
 
-            // Bypass interceptors for the refresh request to avoid loops
             const refreshResponse = await axios.post<ExtendSessionResponse>(
               `${this.serverUrl}/auth/refresh`,
               {},
@@ -76,7 +72,6 @@ export class API {
               refreshToken: refreshResponse.data.refresh_token,
             };
 
-            // Dispatch the new tokens to Redux directly
             store.dispatch(
               updateTokens({
                 serverId: this.serverUrl,
@@ -84,7 +79,6 @@ export class API {
               }),
             );
 
-            // Retry original request
             originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
             return this.client(originalRequest);
           } catch (refreshError) {
@@ -98,7 +92,6 @@ export class API {
     );
   }
 
-  // --- Static login helper for the Add Server Modal ---
   public static async loginServer(serverUrl: string, username: string, password: string): Promise<LoginResponse> {
     try {
       const response = await axios.post<LoginResponse>(`${serverUrl}/auth/login`, {
@@ -114,7 +107,6 @@ export class API {
     }
   }
 
-  // --- Static register helper for the Add Server Modal ---
   public static async registerServer(
     serverUrl: string,
     username: string,
@@ -146,7 +138,6 @@ export class API {
       throw new Error("Registration failed");
     }
   }
-
 
   ///////////////////////////////////////
   //////////// AUTH REQUESTS ////////////
@@ -241,8 +232,6 @@ export class API {
 
   public async postPushToken(token: string): Promise<void> {
     try {
-      // L'intercepteur Axios va automatiquement injecter le Bearer token
-      // car l'URL contient "user" (via config.url?.includes("/user"))
       await this.client.post("/user/push-token", { token });
 
       console.log("Push token registered successfully");
@@ -347,6 +336,14 @@ export class API {
         throw new Error("Can't get channels, invalid token");
       }
       throw new Error(`Can't get channels : ${error}`);
+    }
+  }
+
+  public async createInvite(channelId: number): Promise<string> {
+    try {
+      return `${this.serverUrl}/channels/join/${channelId}`;
+    } catch (error) {
+      throw new Error(`Can't create invite: ${error}`);
     }
   }
 
