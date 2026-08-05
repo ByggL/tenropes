@@ -1,0 +1,58 @@
+version: 2
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "npm"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+    # Expo SDK manages these dependencies on its own, letting dependabot handle them can break everything
+    ignore:
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-*"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-test-renderer"
+      - dependency-name: "jest-expo"
+      - dependency-name: "@react-native/*"
+      - dependency-name: "@react-native-community/*"
+      - dependency-name: "@types/react"
+
+    groups:
+      redux:
+        patterns:
+          - "@reduxjs/toolkit"
+          - "react-redux"
+          - "redux*"
+      networking:
+        patterns:
+          - "axios"
+          - "socket.io-client"
+      tooling:
+        dependency-type: "development"
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "typescript-eslint"
+          - "prettier*"
+          - "typescript"
+          - "jest"
+          - "@types/*"
+      patch-others:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
